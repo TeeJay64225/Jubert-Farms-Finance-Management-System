@@ -559,3 +559,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <?php include '../views/footer.php'; ?>
+
+</body>
+</html>
