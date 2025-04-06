@@ -1,0 +1,15 @@
+
+Dashboard UI & Reports Generation
+
+Secure the system (protect routes, use prepared statements).
+
+Admin: Full access (manage users & clients, sales, expenses, reports).
+
+Manager: Manage sales & expenses, view reports.
+
+Employee: Limited access (add/view sales & expenses, no report access).
+
+
+✅ Clients Table Added – Stores full name, phone number, and address.
+✅ Sales Table Updated – Now linked to clients via client_id.
+✅ Client Tracking – You can track who purchased what.
