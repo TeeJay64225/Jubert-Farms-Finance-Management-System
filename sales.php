@@ -392,6 +392,10 @@ include 'views/header.php';
     </div>
     
     <script src="assets/js/bootstrap.bundle.min.js"></script>
+    <script>
+
+        
+    </script>
 </body>
 </html>
 <?php

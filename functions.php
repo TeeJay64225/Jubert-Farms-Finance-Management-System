@@ -1,156 +1,149 @@
 <?php
-/**
- * Utility functions for the invoice management system
- */
+// Include this in includes/functions.php or create a new file
 
 /**
- * Sanitize input data
- * 
- * @param string $data The input data to sanitize
- * @return string The sanitized data
+ * Generate letter content based on type and employee data
  */
-// In functions.php
-if (!function_exists('sanitize_input')) {
-    function sanitize_input($data) {
-        $data = trim($data);
-        $data = stripslashes($data);
-        $data = htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
-        return $data;
-    }
-}
-
-
-/**
- * Format currency amount
- * 
- * @param float $amount The amount to format
- * @param string $currency The currency symbol (default: $)
- * @return string Formatted currency string
- */
-function format_currency($amount, $currency = '$') {
-    return $currency . number_format($amount, 2);
-}
-
-/**
- * Generate a PDF invoice
- * 
- * @param int $invoice_id The ID of the invoice to generate PDF for
- * @return string Path to the generated PDF file
- */
-function generate_invoice_pdf($invoice_id, $conn) {
-    // This is a placeholder function.
-    // In a real implementation, you would use a library like FPDF or TCPDF
-    // to generate a proper PDF invoice
+function generateLetterContent($letter_type, $employee, $additional_details) {
+    $today = date("F d, Y");
+    $company_name = "Your Company Name";
+    $company_address = "123 Business Street, City, Country";
     
-    // Get invoice data
-    $stmt = $conn->prepare("SELECT i.*, c.* FROM invoices i 
-                           JOIN clients c ON i.client_id = c.client_id 
-                           WHERE i.invoice_id = ?");
-    $stmt->bind_param("i", $invoice_id);
+    $full_name = $employee['first_name'] . ' ' . $employee['last_name'];
+    $position = $employee['position'];
+    $address = $employee['address'];
+    
+    $letter_content = "";
+    
+    // Common header
+    $letter_header = "
+    <div style='text-align: right;'>$today</div>
+    <div style='margin-top: 20px;'>
+        <strong>$full_name</strong><br>
+        $address
+    </div>
+    <div style='margin-top: 20px;'>Dear $full_name,</div>
+    ";
+    
+    // Common footer
+    $letter_footer = "
+    <div style='margin-top: 40px;'>
+        Sincerely,<br><br><br>
+        ____________________<br>
+        HR Department<br>
+        $company_name<br>
+        $company_address
+    </div>
+    ";
+    
+    // Create content based on letter type
+    switch ($letter_type) {
+        case 'Appointment':
+            $letter_content = $letter_header . "
+            <div style='margin-top: 20px;'>
+                <strong>Subject: Appointment as $position</strong>
+            </div>
+            
+            <div style='margin-top: 20px;'>
+                <p>We are pleased to inform you that you have been appointed to the position of <strong>$position</strong> at $company_name.</p>
+                
+                <p>Your appointment is effective from " . date('F d, Y') . ". Your compensation and benefits have been discussed and agreed upon during your interview process.</p>
+                
+                <p>$additional_details</p>
+                
+                <p>We are excited to have you join our team and look forward to your valuable contributions to our organization.</p>
+                
+                <p>Please sign and return a copy of this letter to acknowledge your acceptance of this appointment.</p>
+            </div>
+            " . $letter_footer;
+            break;
+            
+        case 'Dismissal':
+            $letter_content = $letter_header . "
+            <div style='margin-top: 20px;'>
+                <strong>Subject: Termination of Employment</strong>
+            </div>
+            
+            <div style='margin-top: 20px;'>
+                <p>This letter is to inform you that your employment with $company_name will be terminated effective " . date('F d, Y', strtotime('+14 days')) . ".</p>
+                
+                <p>$additional_details</p>
+                
+                <p>You are required to return all company property including, but not limited to, keys, ID cards, equipment, and documents before your last day of employment.</p>
+                
+                <p>Your final paycheck will include payment for any accrued but unused vacation days and will be issued according to company policy.</p>
+                
+                <p>If you have any questions regarding this decision or the transition process, please contact the HR department.</p>
+            </div>
+            " . $letter_footer;
+            break;
+            
+        case 'Suspension':
+            $letter_content = $letter_header . "
+            <div style='margin-top: 20px;'>
+                <strong>Subject: Temporary Suspension of Employment</strong>
+            </div>
+            
+            <div style='margin-top: 20px;'>
+                <p>This letter serves as notification that you are being placed on temporary suspension from your duties as $position, effective immediately.</p>
+                
+                <p>$additional_details</p>
+                
+                <p>During this suspension period, you are not permitted to enter company premises or access company systems without prior authorization from the HR department.</p>
+                
+                <p>This suspension will remain in effect until " . date('F d, Y', strtotime('+30 days')) . ", at which time your employment status will be reviewed.</p>
+                
+                <p>If you have any questions regarding this suspension, please contact the HR department.</p>
+            </div>
+            " . $letter_footer;
+            break;
+    }
+    
+    return $letter_content;
+}
+
+/**
+ * Send letter via email to employee
+ */
+function sendLetterEmail($to_email, $letter_type, $letter_content, $employee) {
+    $subject = '';
+    $company_name = "Your Company Name";
+    
+    switch ($letter_type) {
+        case 'Appointment':
+            $subject = "Appointment Letter - $company_name";
+            break;
+        case 'Dismissal':
+            $subject = "Important: Employment Update - $company_name";
+            break;
+        case 'Suspension':
+            $subject = "Important: Employment Status Update - $company_name";
+            break;
+    }
+    
+    // Email headers
+    $headers = "MIME-Version: 1.0" . "\r\n";
+    $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
+    $headers .= "From: HR Department <hr@yourcompany.com>" . "\r\n";
+    
+    // Send email
+    $mail_sent = mail($to_email, $subject, $letter_content, $headers);
+    
+    return $mail_sent;
+}
+
+/**
+ * Log user action to audit_logs table
+ */
+function logAction($user_id, $action) {
+    global $conn;
+    
+    $sql = "INSERT INTO audit_logs (user_id, action) VALUES (?, ?)";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("is", $user_id, $action);
     $stmt->execute();
-    $invoice = $stmt->get_result()->fetch_assoc();
     
-    // Get invoice items
-    $items_stmt = $conn->prepare("SELECT * FROM invoice_items WHERE invoice_id = ?");
-    $items_stmt->bind_param("i", $invoice_id);
-    $items_stmt->execute();
-    $items = $items_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    
-    // Get payment history
-    $payments_stmt = $conn->prepare("SELECT * FROM receipts WHERE invoice_id = ? ORDER BY payment_date");
-    $payments_stmt->bind_param("i", $invoice_id);
-    $payments_stmt->execute();
-    $payments = $payments_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    
-    // Placeholder return - in reality you would generate and save the PDF
-    return "invoices/invoice_{$invoice_id}.pdf";
+    return $stmt->affected_rows > 0;
 }
 
-/**
- * Calculate the due date based on terms
- * 
- * @param string $date Starting date in Y-m-d format
- * @param int $days Number of days for payment terms
- * @return string Due date in Y-m-d format
- */
-function calculate_due_date($date, $days = 30) {
-    return date('Y-m-d', strtotime($date . " + {$days} days"));
-}
-
-/**
- * Generate a unique invoice number
- * 
- * @return string Formatted invoice number
- */
-// functions.php
-if (!function_exists('generate_invoice_number')) {
-    function generate_invoice_number() {
-        return 'INV-' . date('Ymd') . '-' . rand(1000, 9999);
-    }
-}
-
-
-/**
- * Generate a unique receipt number
- * 
- * @return string Formatted receipt number
- */
-if (!function_exists('generate_receipt_number')) {
-    function generate_receipt_number() {
-        return 'RCT-' . date('Ymd') . '-' . rand(1000, 9999);
-    }
-}
-
-
-/**
- * Get a list of the most recent invoices
- * 
- * @param object $conn Database connection
- * @param int $limit Number of invoices to retrieve
- * @return array Array of invoice data
- */
-function get_recent_invoices($conn, $limit = 5) {
-    $result = $conn->query("SELECT i.*, c.full_name FROM invoices i 
-                           JOIN clients c ON i.client_id = c.client_id 
-                           ORDER BY i.created_at DESC LIMIT {$limit}");
-    return $result->fetch_all(MYSQLI_ASSOC);
-}
-
-/**
- * Get total unpaid invoices amount
- * 
- * @param object $conn Database connection
- * @return float Total unpaid amount
- */
-function get_total_unpaid($conn) {
-    $result = $conn->query("SELECT SUM(total_amount) as total FROM invoices 
-                           WHERE payment_status IN ('Unpaid', 'Partial')");
-    $data = $result->fetch_assoc();
-    return $data['total'] ?? 0;
-}
-
-/**
- * Get count of overdue invoices
- * 
- * @param object $conn Database connection
- * @return int Number of overdue invoices
- */
-function get_overdue_count($conn) {
-    $today = date('Y-m-d');
-    $result = $conn->query("SELECT COUNT(*) as count FROM invoices 
-                           WHERE due_date < '{$today}' AND payment_status != 'Paid'");
-    $data = $result->fetch_assoc();
-    return $data['count'] ?? 0;
-}
-
-/**
- * Check if an invoice is overdue
- * 
- * @param string $due_date Due date in Y-m-d format
- * @param string $status Payment status
- * @return bool True if invoice is overdue
- */
-function is_invoice_overdue($due_date, $status) {
-    return ($status !== 'Paid' && strtotime($due_date) < strtotime('today'));
-}
 ?>

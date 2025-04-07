@@ -102,7 +102,7 @@ $debt_ratio = ($total_receivables > 0) ? ($total_payables / $total_receivables) 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-          :root {
+        :root {
         --primary-color: #2c6e49;
         --secondary-color: #4c956c;
         --accent-color: #fefee3;
@@ -166,8 +166,8 @@ $debt_ratio = ($total_receivables > 0) ? ($total_payables / $total_receivables) 
         overflow: hidden;
     }
     
-    /* Dropdown menu styles */
-    .nav-item {
+    /* Completely updated dropdown system */
+    .custom-dropdown {
         position: relative;
         display: inline-block;
     }
@@ -176,27 +176,32 @@ $debt_ratio = ($total_receivables > 0) ? ($total_payables / $total_receivables) 
         display: none;
         position: absolute;
         background-color: white;
-        min-width: 160px;
+        min-width: 200px;
         box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-        z-index: 1;
+        z-index: 1000;
         border-radius: 4px;
         margin-top: 5px;
+        left: 0;
+        padding: 5px 0;
     }
     
     .dropdown-content a {
         color: var(--dark-color);
-        padding: 12px 16px;
+        padding: 10px 16px;
         text-decoration: none;
         display: block;
         text-align: left;
         transition: background-color 0.3s;
+        white-space: nowrap;
+        font-size: 0.9rem;
     }
     
     .dropdown-content a:hover {
         background-color: var(--light-color);
     }
     
-    .nav-item:hover .dropdown-content {
+    /* Show class for JavaScript toggle */
+    .show {
         display: block;
     }
     
@@ -212,16 +217,40 @@ $debt_ratio = ($total_receivables > 0) ? ($total_payables / $total_receivables) 
         align-items: center;
         margin-right: 0.5rem;
         transition: all 0.3s;
+        cursor: pointer;
     }
     
     .nav-btn:hover {
         background-color: rgba(255, 255, 255, 0.1);
+        color: white;
+    }
+    
+    /* Dropdown nav items */
+    .dropdown-content a {
+        color: var(--dark-color);
+        border: none;
+        width: 100%;
+        text-align: left;
+        padding: 10px 16px;
+        margin: 0;
+        border-radius: 0;
+        display: flex;
+        align-items: center;
+    }
+    
+    .dropdown-content a:hover {
+        background-color: var(--light-color);
+        color: var(--dark-color);
     }
     
     .nav-btn i {
         margin-right: 5px;
     }
-        
+
+    /* Toggle button active style */
+    .nav-btn.active {
+        background-color: rgba(255, 255, 255, 0.3);
+    }
         .dashboard-card {
             border-radius: 12px;
             box-shadow: 0 6px 10px rgba(0,0,0,0.08);
@@ -419,6 +448,7 @@ $debt_ratio = ($total_receivables > 0) ? ($total_payables / $total_receivables) 
     </style>
 </head>
 <body>
+   
 <!-- Navbar -->
 <nav class="navbar navbar-dark">
     <div class="container-fluid">
@@ -426,63 +456,119 @@ $debt_ratio = ($total_receivables > 0) ? ($total_payables / $total_receivables) 
             <div class="logo-container-nav me-2">
                 <img src="../assets/logo2.JPG" alt="Farm Logo" class="logo-nav">
             </div>
-            Jubert Farms Finance
+            Jubert Farms Finance 
         </span>
         
         <!-- Main Navigation Links -->
         <div class="me-4">
-    
-            <a href="../admin/dashboard.php" class="nav-btn"><i class="fas fa-chart-line"></i> Dashboard</a>
+        <a href="../admin/dashboard.php" class="nav-btn"><i class="fas fa-chart-line"></i> Dashboard</a>
 
-            <div class="nav-item d-inline-block">
-                <a href="#" class="nav-btn"><i class="fas fa-receipt"></i> Sales <i class="fas fa-caret-down"></i></a>
-                <div class="dropdown-content">
-            <a href="../sales.php" class="nav-btn"><i class="fas fa-dollar-sign"></i> Sales</a>
-            <a href="../slip.php" class="nav-btn"><i class="fas fa-dollar-sign"></i> Slip</a>
+            <!-- Sales Dropdown -->
+            <div class="custom-dropdown d-inline-block">
+                <button class="nav-btn" onclick="toggleDropdown('salesDropdown')">
+                    <i class="fas fa-receipt"></i> Sales <i class="fas fa-caret-down ms-1"></i>
+                </button>
+                <div id="salesDropdown" class="dropdown-content">
+                    <a href="../sales.php"><i class="fas fa-dollar-sign"></i> Sales</a>
+                    <a href="../slip.php"><i class="fas fa-dollar-sign"></i> Slip</a>
+                </div>
+            </div>
             
-            </div>
-            </div>
             <!-- Expenses Dropdown -->
-            <div class="nav-item d-inline-block">
-                <a href="#" class="nav-btn"><i class="fas fa-receipt"></i> Expenses <i class="fas fa-caret-down"></i></a>
-                <div class="dropdown-content">
+            <div class="custom-dropdown d-inline-block">
+                <button class="nav-btn" onclick="toggleDropdown('expensesDropdown')">
+                    <i class="fas fa-receipt"></i> Expenses <i class="fas fa-caret-down ms-1"></i>
+                </button>
+                <div id="expensesDropdown" class="dropdown-content">
                     <a href="../expenses.php"><i class="fas fa-list"></i> All Expenses</a>
                     <a href="../expense_categories.php"><i class="fas fa-tags"></i> Categories</a>
-
                 </div>
             </div>
             
             <!-- Assets Dropdown -->
-            <div class="nav-item d-inline-block">
-                <a href="#" class="nav-btn"><i class="fas fa-file-alt"></i> Assets <i class="fas fa-caret-down"></i></a>
-                <div class="dropdown-content">
-                    <a href="assets.php"><i class="fas fa-clipboard-list"></i> All Assets</a>
+            <div class="custom-dropdown d-inline-block">
+                <button class="nav-btn" onclick="toggleDropdown('assetsDropdown')">
+                    <i class="fas fa-file-alt"></i> Assets <i class="fas fa-caret-down ms-1"></i>
+                </button>
+                <div id="assetsDropdown" class="dropdown-content">
+                    <a href="../assets.php"><i class="fas fa-clipboard-list"></i> All Assets</a>
                     <a href="../asset_categories.php"><i class="fas fa-tags"></i> Categories</a>
                     <a href="../asset_report.php"><i class="fas fa-chart-pie"></i> Reports</a>
                 </div>
             </div>
             
             <!-- Harvest Dropdown -->
-            <div class="nav-item d-inline-block">
-                <a href="#" class="nav-btn"><i class="fas fa-file-alt"></i> Harvest <i class="fas fa-caret-down"></i></a>
-                <div class="dropdown-content">
-                    <a href="harvest_crop.php"><i class="fas fa-seedling"></i> Crop Harvest</a>
-                    <a href="harvest_crop_analysis.php"><i class="fas fa-chart-line"></i> Harvest Analysis</a>
+            <div class="custom-dropdown d-inline-block">
+                <button class="nav-btn" onclick="toggleDropdown('harvestDropdown')">
+                    <i class="fas fa-file-alt"></i> Harvest <i class="fas fa-caret-down ms-1"></i>
+                </button>
+                <div id="harvestDropdown" class="dropdown-content">
+                    <a href="../harvest_crop.php"><i class="fas fa-seedling"></i> Crop Harvest</a>
+                    <a href="../harvest_crop_analysis.php"><i class="fas fa-chart-line"></i> Harvest Analysis</a>
                 </div>
             </div>
             
-            <a href="clients.php" class="nav-btn"><i class="fas fa-users"></i> Clients</a>
-            <a href="user.php" class="nav-btn"><i class="fas fa-user"></i> User</a>
-            <a href="report.php" class="nav-btn"><i class="fas fa-file-alt"></i> Reports</a>
+            <a href="../clients.php" class="nav-btn"><i class="fas fa-users"></i> Clients</a>
+            <a href="../user.php" class="nav-btn"><i class="fas fa-user"></i> User</a>
+            <a href="../report.php" class="nav-btn"><i class="fas fa-file-alt"></i> Reports</a>
         </div>
         
         <!-- User Info and Logout -->
         <div>
-
+            
             <a href="../logout.php" class="btn btn-light btn-sm"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </div>
     </div>
 </nav>
+<script>
+
+// Store the currently open dropdown ID
+let currentOpenDropdown = null;
+
+// Function to toggle a specific dropdown
+function toggleDropdown(dropdownId) {
+    // Close any open dropdown first
+    if (currentOpenDropdown && currentOpenDropdown !== dropdownId) {
+        document.getElementById(currentOpenDropdown).classList.remove('show');
+        document.querySelector(`[onclick="toggleDropdown('${currentOpenDropdown}')"]`).classList.remove('active');
+    }
+    
+    const dropdown = document.getElementById(dropdownId);
+    const button = document.querySelector(`[onclick="toggleDropdown('${dropdownId}')"]`);
+    
+    // Toggle current dropdown
+    dropdown.classList.toggle('show');
+    button.classList.toggle('active');
+    
+    // Update currently open dropdown reference
+    if (dropdown.classList.contains('show')) {
+        currentOpenDropdown = dropdownId;
+    } else {
+        currentOpenDropdown = null;
+    }
+}
+
+// Close the dropdown when clicking anywhere else on the page
+window.onclick = function(event) {
+    if (!event.target.matches('.nav-btn') && !event.target.closest('.dropdown-content')) {
+        const dropdowns = document.getElementsByClassName("dropdown-content");
+        const buttons = document.querySelectorAll('.nav-btn');
+        
+        for (let i = 0; i < dropdowns.length; i++) {
+            if (dropdowns[i].classList.contains('show')) {
+                dropdowns[i].classList.remove('show');
+            }
+        }
+        
+        for (let i = 0; i < buttons.length; i++) {
+            buttons[i].classList.remove('active');
+        }
+        
+        currentOpenDropdown = null;
+    }
+}
+
+</script>
 
     <div class="container-fluid py-4">
         <!-- Date and Quick Stats -->
@@ -834,6 +920,8 @@ $debt_ratio = ($total_receivables > 0) ? ($total_payables / $total_receivables) 
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+
+
         // Financial Chart
         const ctx = document.getElementById('financialChart').getContext('2d');
         
@@ -915,6 +1003,8 @@ $debt_ratio = ($total_receivables > 0) ? ($total_payables / $total_receivables) 
                 }
             }
         });
+
+        
     </script>
 </body>
 </html>

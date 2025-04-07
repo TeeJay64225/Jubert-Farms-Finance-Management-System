@@ -1,12 +1,20 @@
 <?php
-session_start();
-ob_start(); // Prevent output before headers
-include '../config/db.php';
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+// Start session
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Include your database connection
+require_once '../config/db.php'; // Make sure the path is correct
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $username = trim($_POST['username']);
     $password = trim($_POST['password']);
-    
+
+    // Now $conn is already available from db.php
     $stmt = $conn->prepare("SELECT id, password, role FROM users WHERE username = ?");
     $stmt->bind_param('s', $username);
     $stmt->execute();
@@ -50,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     $stmt->close();
 }
-$conn->close();
+
 ?>
 
 
