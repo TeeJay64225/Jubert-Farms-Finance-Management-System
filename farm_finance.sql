@@ -134,10 +134,9 @@ CREATE TABLE IF NOT EXISTS receipts (
     FOREIGN KEY (invoice_id) REFERENCES invoices(invoice_id) ON DELETE CASCADE
 );
 
--- Create indexes for better performance
-CREATE INDEX idx_client_id ON invoices(client_id);
-CREATE INDEX idx_invoice_id ON invoice_items(invoice_id);
-CREATE INDEX idx_receipt_invoice ON receipts(invoice_id);
+CREATE INDEX idx_invoices_client_id ON invoices(client_id);
+CREATE INDEX idx_invoice_items_invoice_id ON invoice_items(invoice_id);
+CREATE INDEX idx_receipts_invoice_id ON receipts(invoice_id);
 
 -- Expense Categories Table
 CREATE TABLE IF NOT EXISTS expense_categories (
@@ -282,6 +281,15 @@ CREATE TABLE IF NOT EXISTS crops (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (category_id) REFERENCES crop_categories(category_id) ON DELETE SET NULL
+);
+
+CREATE TABLE crop_events (
+    event_id INT AUTO_INCREMENT PRIMARY KEY,
+    event_date DATE NOT NULL,
+    event_name VARCHAR(255) NOT NULL,
+    crop_id INT NOT NULL,
+    description TEXT,
+    FOREIGN KEY (crop_id) REFERENCES crops(crop_id) ON DELETE CASCADE
 );
 
 -- Seasons Table
@@ -486,3 +494,94 @@ INSERT INTO crop_issues (crop_id, issue_id, severity) VALUES
  (SELECT issue_id FROM common_issues WHERE issue_name = 'Aphids'), 'Medium'),
 ((SELECT crop_id FROM crops WHERE crop_name = 'Lettuce'), 
  (SELECT issue_id FROM common_issues WHERE issue_name = 'Aphids'), 'High');
+
+ -- Crop Cycles Table (for tracking multiple plantings of the same crop)
+CREATE TABLE IF NOT EXISTS crop_cycles (
+    cycle_id INT AUTO_INCREMENT PRIMARY KEY,
+    crop_id INT NOT NULL,
+    field_or_location VARCHAR(100),
+    start_date DATE NOT NULL,
+    nursing_duration INT NOT NULL COMMENT 'Duration in days',
+    growth_duration INT NOT NULL COMMENT 'Duration in days',
+    expected_first_harvest DATE NOT NULL,
+    harvest_frequency INT COMMENT 'Days between harvests',
+    expected_end_date DATE,
+    status ENUM('Planned', 'In Progress', 'Completed', 'Failed') DEFAULT 'Planned',
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (crop_id) REFERENCES crops(crop_id) ON DELETE CASCADE
+);
+
+-- Task Types Table
+CREATE TABLE IF NOT EXISTS task_types (
+    task_type_id INT AUTO_INCREMENT PRIMARY KEY,
+    type_name VARCHAR(50) NOT NULL UNIQUE,
+    color_code VARCHAR(20) NOT NULL,
+    icon VARCHAR(50),
+    description TEXT
+);
+
+-- Farm Tasks Table
+CREATE TABLE IF NOT EXISTS farm_tasks (
+    task_id INT AUTO_INCREMENT PRIMARY KEY,
+    cycle_id INT NOT NULL,
+    task_type_id INT NOT NULL,
+    task_name VARCHAR(100) NOT NULL,
+    scheduled_date DATE NOT NULL,
+    completion_status BOOLEAN DEFAULT FALSE,
+    completed_date DATE,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (cycle_id) REFERENCES crop_cycles(cycle_id) ON DELETE CASCADE,
+    FOREIGN KEY (task_type_id) REFERENCES task_types(task_type_id) ON DELETE CASCADE
+);
+
+-- Harvest Records Table
+CREATE TABLE IF NOT EXISTS harvest_records (
+    harvest_id INT AUTO_INCREMENT PRIMARY KEY,
+    cycle_id INT NOT NULL,
+    harvest_date DATE NOT NULL,
+    quantity DECIMAL(10,2),
+    unit VARCHAR(20),
+    quality_rating INT CHECK (quality_rating BETWEEN 1 AND 5),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cycle_id) REFERENCES crop_cycles(cycle_id) ON DELETE CASCADE
+);
+
+-- Insert default task types
+INSERT INTO task_types (type_name, color_code, icon, description) VALUES
+('Fertilizing', '#8bc34a', 'fertilizer', 'Application of fertilizers'),
+('Spraying', '#03a9f4', 'spray', 'Application of pesticides or other treatments'),
+('Watering', '#00bcd4', 'water', 'Irrigation and watering tasks'),
+('Planting', '#9c27b0', 'seed', 'Planting seeds or transplanting'),
+('Harvesting', '#ff9800', 'harvest', 'Collecting mature crops'),
+('Weeding', '#795548', 'weed', 'Removing unwanted plants'),
+('Pruning', '#607d8b', 'scissors', 'Trimming plants for optimal growth');
+
+
+
+-- First create the labor_categories table
+CREATE TABLE IF NOT EXISTS labor_categories (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    fee_per_head DECIMAL(10,2) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Then create the labor_records table that references it
+CREATE TABLE IF NOT EXISTS labor_records (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    labor_date DATE NOT NULL,
+    category_id INT NOT NULL,
+    worker_count INT NOT NULL,
+    fee_per_head DECIMAL(10,2) NOT NULL,
+    total_cost DECIMAL(10,2) NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES labor_categories(id) ON DELETE CASCADE
+);

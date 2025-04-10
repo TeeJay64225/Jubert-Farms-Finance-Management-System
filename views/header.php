@@ -152,6 +152,31 @@
     .nav-btn.active {
         background-color: rgba(255, 255, 255, 0.3);
     }
+
+    /* Make navbar responsive */
+    @media (max-width: 992px) {
+        .nav-container {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .menu-container {
+            margin-top: 10px;
+            width: 100%;
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 5px;
+        }
+        
+        .custom-dropdown {
+            position: static;
+        }
+        
+        .dropdown-content {
+            position: absolute;
+            width: 250px;
+        }
+    }
 </style>
 
 <!-- Navbar -->
@@ -165,8 +190,8 @@
         </span>
         
         <!-- Main Navigation Links -->
-        <div class="me-4">
-        <a href="admin/dashboard.php" class="nav-btn"><i class="fas fa-chart-line"></i> Dashboard</a>
+        <div class="menu-container d-flex flex-wrap">
+            <a href="admin/dashboard.php" class="nav-btn"><i class="fas fa-chart-line"></i> Dashboard</a>
 
             <!-- Sales Dropdown -->
             <div class="custom-dropdown d-inline-block">
@@ -175,7 +200,7 @@
                 </button>
                 <div id="salesDropdown" class="dropdown-content">
                     <a href="sales.php"><i class="fas fa-dollar-sign"></i> Sales</a>
-                    <a href="slip.php"><i class="fas fa-dollar-sign"></i> Slip</a>
+                    <a href="slip.php"><i class="fas fa-file-invoice"></i> Slip</a>
                 </div>
             </div>
             
@@ -205,22 +230,46 @@
             <!-- Harvest Dropdown -->
             <div class="custom-dropdown d-inline-block">
                 <button class="nav-btn" onclick="toggleDropdown('harvestDropdown')">
-                    <i class="fas fa-file-alt"></i> Harvest <i class="fas fa-caret-down ms-1"></i>
+                    <i class="fas fa-seedling"></i> Harvest <i class="fas fa-caret-down ms-1"></i>
                 </button>
                 <div id="harvestDropdown" class="dropdown-content">
                     <a href="harvest_crop.php"><i class="fas fa-seedling"></i> Crop Harvest</a>
                     <a href="harvest_crop_analysis.php"><i class="fas fa-chart-line"></i> Harvest Analysis</a>
+                    <a href="crop_manag.php"><i class="fas fa-leaf"></i> Crop Management</a>
+                    <a href="harvest_records.php"><i class="fas fa-clipboard-check"></i> Harvest Records</a>
+                    <a href="farm_calendar.php"><i class="fas fa-calendar-alt"></i> Farm Calendar</a>
+                    <a href="task.php"><i class="fas fa-tasks"></i> Tasks</a>
+                </div>
+            </div>
+
+            <!-- Stakeholders Dropdown -->
+            <div class="custom-dropdown d-inline-block">
+                <button class="nav-btn" onclick="toggleDropdown('stakeholdersDropdown')">
+                    <i class="fas fa-users"></i> Stakeholders <i class="fas fa-caret-down ms-1"></i>
+                </button>
+                <div id="stakeholdersDropdown" class="dropdown-content">
+                    <a href="clients.php"><i class="fas fa-user-tie"></i> Clients</a>
+                    <a href="user.php"><i class="fas fa-user-shield"></i> Users</a>
+                </div>
+            </div>
+
+            <!-- Labor Dropdown -->
+            <div class="custom-dropdown d-inline-block">
+                <button class="nav-btn" onclick="toggleDropdown('laborDropdown')">
+                    <i class="fas fa-people-carry"></i> Labor <i class="fas fa-caret-down ms-1"></i>
+                </button>
+                <div id="laborDropdown" class="dropdown-content">
+                    <a href="labor_management.php"><i class="fas fa-users-cog"></i> Labor Management</a>
+                    <a href="labor_reports.php"><i class="fas fa-file-contract"></i> Labor Reports</a>
+                    <a href="labor_tracking.php"><i class="fas fa-user-clock"></i> Labor Tracking</a>
                 </div>
             </div>
             
-            <a href="clients.php" class="nav-btn"><i class="fas fa-users"></i> Clients</a>
-            <a href="user.php" class="nav-btn"><i class="fas fa-user"></i> User</a>
             <a href="report.php" class="nav-btn"><i class="fas fa-file-alt"></i> Reports</a>
         </div>
         
         <!-- User Info and Logout -->
         <div>
-    
             <a href="logout.php" class="btn btn-light btn-sm"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </div>
     </div>
@@ -228,7 +277,6 @@
 
 <!-- JavaScript for dropdown functionality -->
 <script>
-    
 // Store the currently open dropdown ID
 let currentOpenDropdown = null;
 
