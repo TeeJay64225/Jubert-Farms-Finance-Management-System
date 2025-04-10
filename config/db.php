@@ -6,7 +6,7 @@ error_reporting(E_ALL);
 $servername = "localhost"; // Change if using a remote server
 $username = "root"; // Your MySQL username
 $password = ""; // Your MySQL password
-$database = "farm_finance"; // Database name
+$database = "farm_finance"; // change this to the correct DB name
 
 // Create connection
 $conn = new mysqli($servername, $username, $password, $database);

@@ -59,7 +59,46 @@ FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 
+-- First, create the labor_categories table with unsigned INT
+CREATE TABLE IF NOT EXISTS labor_categories (
+    category_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    category_name VARCHAR(100) NOT NULL UNIQUE,
+    fee_per_head DECIMAL(10,2) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
+-- Then create the labor table with matching foreign key type
+CREATE TABLE IF NOT EXISTS labor (
+    labor_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    labor_date DATE NOT NULL,
+    worker_name VARCHAR(100),
+    hours_worked DECIMAL(5,2) NOT NULL,
+    hourly_rate DECIMAL(10,2) NOT NULL,
+    total_amount DECIMAL(10,2) NOT NULL,
+    category_id INT UNSIGNED,
+    task_description TEXT,
+    payment_status ENUM('Paid', 'Not Paid') NOT NULL DEFAULT 'Not Paid',
+    payment_date DATE,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES labor_categories(category_id) ON DELETE SET NULL
+);
+
+-- Also update the labor_records table to match
+CREATE TABLE IF NOT EXISTS labor_records (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    labor_date DATE NOT NULL,
+    category_id INT UNSIGNED NOT NULL,
+    worker_count INT NOT NULL,
+    fee_per_head DECIMAL(10,2) NOT NULL,
+    total_cost DECIMAL(10,2) NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES labor_categories(category_id) ON DELETE CASCADE
+);
 
 
 -- Clients table (already created)
@@ -561,27 +600,3 @@ INSERT INTO task_types (type_name, color_code, icon, description) VALUES
 ('Weeding', '#795548', 'weed', 'Removing unwanted plants'),
 ('Pruning', '#607d8b', 'scissors', 'Trimming plants for optimal growth');
 
-
-
--- First create the labor_categories table
-CREATE TABLE IF NOT EXISTS labor_categories (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    fee_per_head DECIMAL(10,2) NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- Then create the labor_records table that references it
-CREATE TABLE IF NOT EXISTS labor_records (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    labor_date DATE NOT NULL,
-    category_id INT NOT NULL,
-    worker_count INT NOT NULL,
-    fee_per_head DECIMAL(10,2) NOT NULL,
-    total_cost DECIMAL(10,2) NOT NULL,
-    notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (category_id) REFERENCES labor_categories(id) ON DELETE CASCADE
-);
