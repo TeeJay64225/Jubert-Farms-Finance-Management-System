@@ -689,7 +689,7 @@ $conn->close();
     <div class="header">
         <div class="container">
             <div class="d-flex align-items-center">
-                <h1>Farm Harvest Calendar</h1>
+                <h1>Farm Harvest </h1>
             </div>
         </div>
     </div>
@@ -810,6 +810,11 @@ $conn->close();
                 </div>
             </div>
         </div>
+        <div>
+                <a href="crop_category.php" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-tags"></i> Manage Categories
+                </a>
+            </div>
         <div class="row">
     <div class="col-md-12">
         <div class="add-crop-section">

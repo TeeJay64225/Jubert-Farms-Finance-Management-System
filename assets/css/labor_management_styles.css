@@ -1,0 +1,226 @@
+/* Labor Management Custom Styling */
+
+/* Page Layout & General Styling */
+body {
+    background-color: #f8f9fa;
+    color: #212529;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.container-fluid {
+    max-width: 1400px;
+    padding: 0 25px;
+}
+
+h1.mt-4 {
+    color: #0d6efd;
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.breadcrumb {
+    background-color: #e9ecef;
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+}
+
+.breadcrumb-item a {
+    color: #0d6efd;
+    text-decoration: none;
+}
+
+.breadcrumb-item a:hover {
+    text-decoration: underline;
+}
+
+/* Card Styling */
+.card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: none;
+    margin-bottom: 30px;
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    background-color: #0d6efd;
+    color: white;
+    font-weight: 500;
+    padding: 12px 20px;
+}
+
+.card-header i {
+    margin-right: 10px;
+}
+
+/* Table Styling */
+#laborCategoriesTable {
+    width: 100% !important;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+#laborCategoriesTable thead th {
+    background-color: #343a40;
+    color: white;
+    border: none;
+    padding: 12px 15px;
+    font-weight: 500;
+}
+
+#laborCategoriesTable tbody tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
+
+#laborCategoriesTable tbody tr:hover {
+    background-color: #e9ecef;
+}
+
+#laborCategoriesTable td {
+    padding: 10px 15px;
+    vertical-align: middle;
+}
+
+/* Action Buttons */
+.btn-sm {
+    border-radius: 3px;
+    margin-right: 5px;
+}
+
+.btn-info {
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+    color: white;
+}
+
+.btn-info:hover {
+    background-color: #138496;
+    border-color: #117a8b;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+/* Modal Styling */
+.modal-header {
+    background-color: #0d6efd;
+    color: white;
+    border-bottom: none;
+}
+
+.modal-title {
+    font-weight: 500;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.form-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Alert Styling */
+.alert {
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+/* DataTables Custom Styling */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+    margin-bottom: 15px;
+}
+
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate {
+    margin-top: 15px;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: 5px 10px;
+    margin: 0 3px;
+    border-radius: 3px;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: #0d6efd;
+    color: white !important;
+    border: 1px solid #0d6efd;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background: #e9ecef;
+    color: #212529 !important;
+    border: 1px solid #dee2e6;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 0 15px;
+    }
+    
+    .card-header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .card-header .d-flex {
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    #laborCategoriesTable {
+        display: block;
+        overflow-x: auto;
+    }
+}

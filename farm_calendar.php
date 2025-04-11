@@ -387,8 +387,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'reschedule_event') {
             <h1><i class="fas fa-calendar-alt"></i> Farm Calendar</h1>
             
             <div class="action-buttons">
-                <a href="add_task.php" class="btn btn-primary"><i class="fas fa-plus"></i> Add Task</a>
-                <a href="add_harvest.php" class="btn btn-success"><i class="fas fa-leaf"></i> Record Harvest</a>
+                <a href="task.php" class="btn btn-primary"><i class="fas fa-plus"></i> Add Task</a>
+                <a href="harvest_crop.php" class="btn btn-success"><i class="fas fa-leaf"></i> Record Harvest</a>
                 <a href="?export=ical&start=<?= $start_date ?> &end= <?= $end_date ?>" class="btn btn-secondary">
                     <i class="fas fa-download"></i> Export Calendar
                 </a>
@@ -801,8 +801,8 @@ function showDayDetails(dayElement) {
     dayEvents.innerHTML = '<p>Loading events...</p>';
     
     // Set up the action buttons with the correct date
-    addTaskBtn.href = `add_task.php?date=${date}`;
-    recordHarvestBtn.href = `add_harvest.php?date=${date}`;
+    addTaskBtn.href = `task.php?date=${date}`;
+    recordHarvestBtn.href = `harvest_crop.php?date=${date}`;
     
     // Show the modal now, so user sees something happening immediately
     modal.style.display = 'block';

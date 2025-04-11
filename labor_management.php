@@ -21,7 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $fee = mysqli_real_escape_string($conn, $_POST['fee_per_head']);
         $description = mysqli_real_escape_string($conn, $_POST['description']);
         
-        $sql = "INSERT INTO labor_categories (name, fee_per_head, description) 
+        // Changed 'name' to 'category_name' to match the table structure
+        $sql = "INSERT INTO labor_categories (category_name, fee_per_head, description) 
                 VALUES ('$name', '$fee', '$description')";
         
         if (mysqli_query($conn, $sql)) {
@@ -36,9 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $fee = mysqli_real_escape_string($conn, $_POST['fee_per_head']);
         $description = mysqli_real_escape_string($conn, $_POST['description']);
         
+        // Changed 'name' to 'category_name' and 'id' to 'category_id'
         $sql = "UPDATE labor_categories 
-                SET name = '$name', fee_per_head = '$fee', description = '$description' 
-                WHERE id = $id";
+                SET category_name = '$name', fee_per_head = '$fee', description = '$description' 
+                WHERE category_id = $id";
         
         if (mysqli_query($conn, $sql)) {
             $success_message = "Labor category updated successfully!";
@@ -47,7 +49,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 }
-
 // Handle delete requests
 if (isset($_GET['delete']) && isset($_GET['id'])) {
     $id = mysqli_real_escape_string($conn, $_GET['id']);
@@ -62,7 +63,7 @@ if (isset($_GET['delete']) && isset($_GET['id'])) {
 }
 
 // Fetch all labor categories
-$sql = "SELECT * FROM labor_categories ORDER BY name ASC";
+$sql = "SELECT * FROM labor_categories ORDER BY category_name ASC";
 $result = mysqli_query($conn, $sql);
 $categories = [];
 
@@ -83,7 +84,7 @@ if (mysqli_num_rows($result) > 0) {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
-    <link rel="stylesheet" href="assets/css/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/labor_management_styles.css">
 
 </head>
 <body>
@@ -129,22 +130,22 @@ if (mysqli_num_rows($result) > 0) {
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($categories as $category): ?>
-                    <tr>
-                        <td><?php echo $category['id']; ?></td>
-                        <td><?php echo htmlspecialchars($category['name']); ?></td>
-                        <td><?php echo number_format($category['fee_per_head'], 2); ?></td>
-                        <td><?php echo htmlspecialchars($category['description']); ?></td>
-                        <td>
-                            <button class="btn btn-sm btn-info edit-btn" 
-                                    data-id="<?php echo $category['id']; ?>"
-                                    data-name="<?php echo htmlspecialchars($category['name']); ?>"
-                                    data-fee="<?php echo $category['fee_per_head']; ?>"
-                                    data-description="<?php echo htmlspecialchars($category['description']); ?>"
-                                    data-bs-toggle="modal" data-bs-target="#editCategoryModal">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <a href="labor_management.php?delete=true&id=<?php echo $category['id']; ?>" 
+                <?php foreach ($categories as $category): ?>
+    <tr>
+        <td><?php echo $category['category_id']; ?></td>
+        <td><?php echo htmlspecialchars($category['category_name']); ?></td>
+        <td><?php echo number_format($category['fee_per_head'], 2); ?></td>
+        <td><?php echo htmlspecialchars($category['description']); ?></td>
+        <td>
+    <button class="btn btn-sm btn-info edit-btn" 
+            data-id="<?php echo $category['category_id']; ?>"
+            data-name="<?php echo htmlspecialchars($category['category_name']); ?>"
+            data-fee="<?php echo $category['fee_per_head']; ?>"
+            data-description="<?php echo htmlspecialchars($category['description']); ?>"
+            data-bs-toggle="modal" data-bs-target="#editCategoryModal">
+        <i class="fas fa-edit"></i>
+    </button>
+                            <a href="labor_management.php?delete=true&id=<?php echo $category['category_id']; ?>" 
                                class="btn btn-sm btn-danger"
                                onclick="return confirm('Are you sure you want to delete this category?');">
                                 <i class="fas fa-trash"></i>
