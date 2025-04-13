@@ -20,10 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_labor_record'])) {
     $notes = mysqli_real_escape_string($conn, $_POST['notes']);
     
     // Get the standard fee for the selected category
-    $fee_query = "SELECT fee_per_head FROM labor_categories WHERE id = $category_id";
+    $fee_query = "SELECT fee_per_head FROM labor_categories WHERE category_id = $category_id";
     $fee_result = mysqli_query($conn, $fee_query);
     $fee_row = mysqli_fetch_assoc($fee_result);
     $standard_fee = $fee_row['fee_per_head'];
+    
     
     // Use override fee if provided, otherwise use standard fee
     $actual_fee = $override_fee ? $override_fee : $standard_fee;
@@ -50,10 +51,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_labor_record'])) {
     
     if (mysqli_query($conn, $sql)) {
         // Also add to expenses table for financial tracking
-        $category_query = "SELECT name FROM labor_categories WHERE id = $category_id";
+        $category_query = "SELECT category_name FROM labor_categories WHERE category_id = $category_id";
         $category_result = mysqli_query($conn, $category_query);
         $category_row = mysqli_fetch_assoc($category_result);
-        $category_name = $category_row['name'];
+        $category_name = $category_row['category_name'];
+        
         
         $expense_reason = "Labor: " . $category_name . " (" . $worker_count . " workers)";
         
@@ -78,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_labor_record'])) {
 }
 
 // Fetch all labor categories for the dropdown
-$categories_sql = "SELECT * FROM labor_categories ORDER BY name ASC";
+$categories_sql = "SELECT * FROM labor_categories ORDER BY category_name ASC";
 $categories_result = mysqli_query($conn, $categories_sql);
 $categories = [];
 
@@ -89,11 +91,12 @@ if (mysqli_num_rows($categories_result) > 0) {
 }
 
 // Fetch existing labor records
-$records_sql = "SELECT lr.id, lr.labor_date, lc.name as category_name, lr.worker_count, 
+$records_sql = "SELECT lr.id, lr.labor_date, lc.category_name as category_name, lr.worker_count, 
                 lr.fee_per_head, lr.total_cost, lr.notes 
                 FROM labor_records lr
-                JOIN labor_categories lc ON lr.category_id = lc.id
-                ORDER BY lr.labor_date DESC, lc.name ASC";
+                JOIN labor_categories lc ON lr.category_id = lc.category_id
+                ORDER BY lr.labor_date DESC, lc.category_name ASC";
+
 
 $records_result = mysqli_query($conn, $records_sql);
 $records = [];
@@ -144,13 +147,15 @@ if ($records_result && mysqli_num_rows($records_result) > 0) {
                         <div class="mb-3">
                             <label for="category_id" class="form-label">Labor Category</label>
                             <select class="form-select" id="category_id" name="category_id" required>
-                                <option value="">Select a category</option>
-                                <?php foreach ($categories as $category): ?>
-                                    <option value="<?php echo $category['id']; ?>" data-fee="<?php echo $category['fee_per_head']; ?>">
-                                        <?php echo htmlspecialchars($category['name']); ?> (GHS <?php echo number_format($category['fee_per_head'], 2); ?>/person)
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
+    <option value="">Select a category</option>
+    <?php foreach ($categories as $category): ?>
+        <option value="<?php echo $category['category_id']; ?>" data-fee="<?php echo $category['fee_per_head']; ?>">
+            <?php echo htmlspecialchars($category['category_name']); ?> 
+            (GHS <?php echo number_format($category['fee_per_head'], 2); ?>/person)
+        </option>
+    <?php endforeach; ?>
+</select>
+
                         </div>
                         
                         <div class="mb-3">

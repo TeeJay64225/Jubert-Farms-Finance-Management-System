@@ -17,7 +17,7 @@ $end_date = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-t'); // Las
 $category_filter = isset($_GET['category_id']) ? $_GET['category_id'] : '';
 
 // Fetch labor categories for filter dropdown
-$categories_sql = "SELECT * FROM labor_categories ORDER BY name ASC";
+$categories_sql = "SELECT * FROM labor_categories ORDER BY category_name ASC";
 $categories_result = mysqli_query($conn, $categories_sql);
 $categories = [];
 
@@ -34,12 +34,13 @@ if (!empty($category_filter)) {
 }
 
 // Fetch filtered labor records
-$records_sql = "SELECT lr.labor_date, lc.name as category_name, lr.worker_count, 
+$records_sql = "SELECT lr.labor_date, lc.category_name as category_name, lr.worker_count, 
                 lr.fee_per_head, lr.total_cost, lr.notes 
                 FROM labor_records lr
-                JOIN labor_categories lc ON lr.category_id = lc.id
+                JOIN labor_categories lc ON lr.category_id = lc.category_id
                 $where_clause
-                ORDER BY lr.labor_date ASC, lc.name ASC";
+                ORDER BY lr.labor_date ASC, lc.category_name ASC";
+
 
 $records_result = mysqli_query($conn, $records_sql);
 $records = [];
@@ -55,12 +56,12 @@ if ($records_result && mysqli_num_rows($records_result) > 0) {
 }
 
 // Get labor costs by category for pie chart
-$category_data_sql = "SELECT lc.name as category_name, SUM(lr.total_cost) as total_cost
-                       FROM labor_records lr
-                       JOIN labor_categories lc ON lr.category_id = lc.id
-                       $where_clause
-                       GROUP BY lr.category_id
-                       ORDER BY total_cost DESC";
+$category_data_sql = "SELECT lc.category_name as category_name, SUM(lr.total_cost) as total_cost
+                      FROM labor_records lr
+                      JOIN labor_categories lc ON lr.category_id = lc.category_id
+                      $where_clause
+                      GROUP BY lr.category_id
+                      ORDER BY total_cost DESC";
 
 $category_data_result = mysqli_query($conn, $category_data_sql);
 $category_data = [];

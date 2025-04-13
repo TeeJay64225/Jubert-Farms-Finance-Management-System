@@ -582,7 +582,7 @@ include 'views/header.php';
                             <div class="form-group">
                                 <button type="submit" class="btn btn-primary"><?php echo empty($crop_id) ? 'Add Crop' : 'Update Crop'; ?></button>
                                 <?php if (!empty($crop_id)): ?>
-                                    <button type="button" class="btn btn-secondary" onclick="window.location.href='manage_crops.php'">Cancel</button>
+                                    <button type="button" class="btn btn-secondary" onclick="window.location.href='crops_manag.php'">Cancel</button>
                                 <?php endif; ?>
                             </div>
                         </form>

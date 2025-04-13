@@ -59,6 +59,7 @@ FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 
+
 -- First, create the labor_categories table with unsigned INT
 CREATE TABLE IF NOT EXISTS labor_categories (
     category_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -99,6 +100,7 @@ CREATE TABLE IF NOT EXISTS labor_records (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (category_id) REFERENCES labor_categories(category_id) ON DELETE CASCADE
 );
+
 
 
 -- Clients table (already created)
@@ -195,6 +197,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     category_id INT,
     vendor_name VARCHAR(255),  
     notes TEXT,
+    receipt_file VARCHAR(255) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (category_id) REFERENCES expense_categories(category_id) ON DELETE SET NULL
 );

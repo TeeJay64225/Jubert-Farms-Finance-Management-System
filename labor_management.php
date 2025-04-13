@@ -88,6 +88,7 @@ if (mysqli_num_rows($result) > 0) {
 
 </head>
 <body>
+
 <div class="container-fluid px-4">
     <h1 class="mt-4">Labor Management</h1>
     <ol class="breadcrumb mb-4">
@@ -108,7 +109,11 @@ if (mysqli_num_rows($result) > 0) {
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
-
+    <div>
+            <!--    <a href="add_labor.php" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-tags"></i> add labor
+                </a>
+            </div>-->
     <div class="card mb-4">
         <div class="card-header">
             <div class="d-flex justify-content-between align-items-center">

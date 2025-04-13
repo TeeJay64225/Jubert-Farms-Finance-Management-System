@@ -1,5 +1,4 @@
 <?php
-
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 session_start();
@@ -10,86 +9,332 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 
 include '../config/db.php';
 
-// Get financial summary data
-$sql = "
-    SELECT 
-        (SELECT COALESCE(SUM(amount), 0) FROM sales WHERE payment_status = 'Paid') AS total_sales,
-        (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE payment_status = 'Paid') AS total_expenses,
-        (SELECT COALESCE(SUM(amount), 0) FROM sales WHERE payment_status = 'Not Paid') AS total_receivables,
-        (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE payment_status = 'Not Paid') AS total_payables
-";
-$result = $conn->query($sql);
-$finance = $result->fetch_assoc();
-
-$total_sales = $finance['total_sales'];
-$total_expenses = $finance['total_expenses'];
-$net_profit = $total_sales - $total_expenses;
-$total_receivables = $finance['total_receivables'];
-$total_payables = $finance['total_payables'];
-
-// Get monthly data for charts (last 6 months)
-$months = [];
-$sales_data = [];
-$expenses_data = [];
-
-for ($i = 5; $i >= 0; $i--) {
-    $month = date('M', strtotime("-$i month"));
-    $months[] = $month;
+/**
+ * Get dashboard summary data for the admin panel
+ * @return array Associative array containing all dashboard data
+ */
+function getDashboardData() {
+    global $conn;
+    $dashboardData = [];
     
-    $month_num = date('m', strtotime("-$i month"));
-    $year = date('Y', strtotime("-$i month"));
+    //paid total_sales
+    //not paid total_receivables
+    // Total Revenue (Paid + Not Paid)
+    $query = "SELECT 
+    SUM(CASE WHEN payment_status = 'Paid' THEN amount ELSE 0 END) as total_sales,
+    SUM(CASE WHEN payment_status = 'Not Paid' THEN amount ELSE 0 END) as total_receivables
+FROM sales";
+
+$result = $conn->query($query);
+
+if ($result) {
+    $row = $result->fetch_assoc();
+    $total_sales = $row['total_sales'] ?? 0;
+    $total_receivables = $row['total_receivables'] ?? 0;
+    $total_revenue = $total_sales + $total_receivables;
+
+    $dashboardData['finance']['total_sales'] = $total_sales;
+    $dashboardData['finance']['total_receivables'] = $total_receivables;
+    $dashboardData['finance']['total_revenue'] = $total_revenue;
+}
+
+
+
+
+    // Employee Statistics
+    $query = "SELECT 
+                COUNT(*) as total_employees,
+                SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active_employees,
+                SUM(CASE WHEN employment_type = 'Fulltime' THEN 1 ELSE 0 END) as fulltime_employees,
+                SUM(CASE WHEN employment_type = 'By-Day' THEN 1 ELSE 0 END) as byday_employees
+              FROM employees";
+    $result = $conn->query($query);
+    if ($result) {
+        $dashboardData['employees'] = $result->fetch_assoc();
+    }
     
-    // Get monthly sales
-    $sql = "SELECT COALESCE(SUM(amount), 0) AS total 
+    // Financial Overview
+    $query = "SELECT 
+                (SELECT SUM(amount) FROM sales WHERE YEAR(sale_date) = YEAR(CURRENT_DATE())) as yearly_sales,
+                (SELECT SUM(amount) FROM sales WHERE MONTH(sale_date) = MONTH(CURRENT_DATE()) AND YEAR(sale_date) = YEAR(CURRENT_DATE())) as monthly_sales,
+                (SELECT SUM(amount) FROM expenses WHERE YEAR(expense_date) = YEAR(CURRENT_DATE())) as yearly_expenses,
+                (SELECT SUM(amount) FROM expenses WHERE MONTH(expense_date) = MONTH(CURRENT_DATE()) AND YEAR(expense_date) = YEAR(CURRENT_DATE())) as monthly_expenses,
+                (SELECT SUM(total_amount) FROM invoices WHERE payment_status = 'Unpaid') as outstanding_invoices,
+                (SELECT SUM(amount) FROM payroll WHERE YEAR(payment_date) = YEAR(CURRENT_DATE())) as yearly_payroll,
+                (SELECT COALESCE(SUM(amount), 0) FROM sales WHERE payment_status = 'Paid') AS total_sales,
+                (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE payment_status = 'Paid') AS total_expenses,
+                (SELECT COALESCE(SUM(amount), 0) FROM sales WHERE payment_status = 'Not Paid') AS total_receivables,
+                (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE payment_status = 'Not Paid') AS total_payables
+              FROM dual";
+    $result = $conn->query($query);
+    if ($result) {
+        
+        $dashboardData['finance'] = $result->fetch_assoc();
+        
+        // Calculate profit
+        $dashboardData['finance']['yearly_profit'] = $dashboardData['finance']['yearly_sales'] - 
+                                                    $dashboardData['finance']['yearly_expenses'] - 
+                                                    $dashboardData['finance']['yearly_payroll'];
+        $dashboardData['finance']['monthly_profit'] = $dashboardData['finance']['monthly_sales'] - 
+                                                     $dashboardData['finance']['monthly_expenses'];
+        $dashboardData['finance']['net_profit'] = $dashboardData['finance']['total_sales'] - 
+                                                 $dashboardData['finance']['total_expenses'];
+        
+        // Calculate metrics
+        $dashboardData['finance']['profit_margin'] = ($dashboardData['finance']['total_sales'] > 0) ? 
+                                                    ($dashboardData['finance']['net_profit'] / $dashboardData['finance']['total_sales']) * 100 : 0;
+        $dashboardData['finance']['debt_ratio'] = ($dashboardData['finance']['total_receivables'] > 0) ? 
+                                                 ($dashboardData['finance']['total_payables'] / $dashboardData['finance']['total_receivables']) * 100 : 0;
+                                                 $dashboardData['finance']['total_sales'] = $total_sales;
+                                                 $dashboardData['finance']['total_receivables'] = $total_receivables;
+                                                 $dashboardData['finance']['total_revenue'] = $total_revenue;
+    }
+    
+    // Crop Statistics
+    $query = "SELECT 
+                COUNT(*) as total_crops,
+                (SELECT COUNT(*) FROM crop_cycles WHERE status = 'In Progress') as active_cycles,
+                (SELECT COUNT(*) FROM farm_tasks WHERE completion_status = 0 AND scheduled_date >= CURRENT_DATE()) as pending_tasks,
+                (SELECT COUNT(*) FROM harvest_records WHERE MONTH(harvest_date) = MONTH(CURRENT_DATE()) AND YEAR(harvest_date) = YEAR(CURRENT_DATE())) as harvests_this_month
+              FROM crops";
+    $result = $conn->query($query);
+    if ($result) {
+        $dashboardData['crops'] = $result->fetch_assoc();
+    }
+    
+    // Asset Overview
+    $query = "SELECT 
+                COUNT(*) as total_assets,
+                SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_assets,
+                (SELECT COUNT(*) FROM asset_transactions WHERE MONTH(transaction_date) = MONTH(CURRENT_DATE()) AND YEAR(transaction_date) = YEAR(CURRENT_DATE())) as recent_transactions
+              FROM assets";
+    $result = $conn->query($query);
+    if ($result) {
+        $dashboardData['assets'] = $result->fetch_assoc();
+    }
+    
+    // Recent Sales (Last 5)
+    $query = "SELECT s.sale_id, s.invoice_no, s.product_name, s.amount, s.sale_date, c.full_name as client_name 
+              FROM sales s 
+              LEFT JOIN clients c ON s.client_id = c.client_id 
+              ORDER BY s.sale_date DESC 
+              LIMIT 5";
+    $result = $conn->query($query);
+    if ($result) {
+        $dashboardData['recent_sales'] = [];
+        while ($row = $result->fetch_assoc()) {
+            $dashboardData['recent_sales'][] = $row;
+        }
+    }
+    
+    // Recent Expenses (Last 5)
+    $query = "SELECT e.expense_id, e.expense_reason, e.amount, e.expense_date, ec.category_name 
+              FROM expenses e 
+              LEFT JOIN expense_categories ec ON e.category_id = ec.category_id 
+              ORDER BY e.expense_date DESC 
+              LIMIT 5";
+    $result = $conn->query($query);
+    if ($result) {
+        $dashboardData['recent_expenses'] = [];
+        while ($row = $result->fetch_assoc()) {
+            $dashboardData['recent_expenses'][] = $row;
+        }
+    }
+    
+    // Recent Transactions (Combined Sales and Expenses)
+    $query = "SELECT 'Sale' as type, s.product_name as description, s.amount, s.sale_date as transaction_date, s.payment_status
+              FROM sales s
+              UNION ALL
+              SELECT 'Expense' as type, e.expense_reason as description, e.amount, e.expense_date as transaction_date, e.payment_status
+              FROM expenses e
+              ORDER BY transaction_date DESC
+              LIMIT 5";
+    $result = $conn->query($query);
+    if ($result) {
+        $dashboardData['recent_transactions'] = [];
+        while ($row = $result->fetch_assoc()) {
+            $dashboardData['recent_transactions'][] = $row;
+        }
+    }
+    
+    // Upcoming Tasks
+    $query = "SELECT ft.task_id, ft.task_name, ft.scheduled_date, tt.type_name, 
+              c.crop_name, tt.color_code
+              FROM farm_tasks ft 
+              JOIN task_types tt ON ft.task_type_id = tt.task_type_id
+              JOIN crop_cycles cc ON ft.cycle_id = cc.cycle_id
+              JOIN crops c ON cc.crop_id = c.crop_id
+              WHERE ft.completion_status = 0 
+              AND ft.scheduled_date >= CURRENT_DATE()
+              ORDER BY ft.scheduled_date ASC
+              LIMIT 5";
+    $result = $conn->query($query);
+    if ($result) {
+        $dashboardData['upcoming_tasks'] = [];
+        while ($row = $result->fetch_assoc()) {
+            $dashboardData['upcoming_tasks'][] = $row;
+        }
+    }
+    
+    // Labor Statistics
+    $query = "SELECT 
+                (SELECT SUM(total_cost) FROM labor_records WHERE MONTH(labor_date) = MONTH(CURRENT_DATE()) AND YEAR(labor_date) = YEAR(CURRENT_DATE())) as monthly_labor_cost,
+                (SELECT COUNT(*) FROM labor WHERE payment_status = 'Not Paid') as unpaid_labor_count,
+                (SELECT SUM(total_amount) FROM labor WHERE payment_status = 'Not Paid') as unpaid_labor_amount
+              FROM dual";
+    $result = $conn->query($query);
+    if ($result) {
+        $dashboardData['labor'] = $result->fetch_assoc();
+    }
+    
+    // Monthly Sales for Chart (last 6 months)
+    $dashboardData['chart_data'] = [
+        'months' => [],
+        'sales_data' => [],
+        'expenses_data' => []
+    ];
+    
+    for ($i = 5; $i >= 0; $i--) {
+        $month = date('M', strtotime("-$i month"));
+        $dashboardData['chart_data']['months'][] = $month;
+        
+        $month_num = date('m', strtotime("-$i month"));
+        $year = date('Y', strtotime("-$i month"));
+        
+        // Get monthly sales
+        $sql = "SELECT COALESCE(SUM(amount), 0) AS total 
+                FROM sales 
+                WHERE MONTH(sale_date) = '$month_num' 
+                AND YEAR(sale_date) = '$year'";
+        $result = $conn->query($sql);
+        $row = $result->fetch_assoc();
+        $dashboardData['chart_data']['sales_data'][] = $row['total'];
+        
+        // Get monthly expenses
+        $sql = "SELECT COALESCE(SUM(amount), 0) AS total 
+                FROM expenses 
+                WHERE MONTH(expense_date) = '$month_num' 
+                AND YEAR(expense_date) = '$year'";
+        $result = $conn->query($sql);
+        $row = $result->fetch_assoc();
+        $dashboardData['chart_data']['expenses_data'][] = $row['total'];
+    }
+    
+    // Monthly Sales for Annual Chart
+    $query = "SELECT 
+                MONTH(sale_date) as month, 
+                SUM(amount) as total 
+              FROM sales 
+              WHERE YEAR(sale_date) = YEAR(CURRENT_DATE()) 
+              GROUP BY MONTH(sale_date) 
+              ORDER BY MONTH(sale_date)";
+    $result = $conn->query($query);
+    if ($result) {
+        $dashboardData['monthly_sales_chart'] = [];
+        $months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        while ($row = $result->fetch_assoc()) {
+            $month_idx = (int)$row['month'] - 1;
+            $dashboardData['monthly_sales_chart'][] = [
+                'month' => $months[$month_idx],
+                'total' => $row['total']
+            ];
+        }
+    }
+    
+    // Monthly Expenses for Annual Chart
+    $query = "SELECT 
+                MONTH(expense_date) as month, 
+                SUM(amount) as total 
+              FROM expenses 
+              WHERE YEAR(expense_date) = YEAR(CURRENT_DATE()) 
+              GROUP BY MONTH(expense_date) 
+              ORDER BY MONTH(expense_date)";
+    $result = $conn->query($query);
+    if ($result) {
+        $dashboardData['monthly_expenses_chart'] = [];
+        $months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        while ($row = $result->fetch_assoc()) {
+            $month_idx = (int)$row['month'] - 1;
+            $dashboardData['monthly_expenses_chart'][] = [
+                'month' => $months[$month_idx],
+                'total' => $row['total']
+            ];
+        }
+    }
+    
+    // Expense Categories Breakdown
+    $query = "SELECT 
+                ec.category_name, 
+                SUM(e.amount) as total 
+              FROM expenses e 
+              JOIN expense_categories ec ON e.category_id = ec.category_id 
+              WHERE YEAR(e.expense_date) = YEAR(CURRENT_DATE()) 
+              GROUP BY e.category_id 
+              ORDER BY total DESC";
+    $result = $conn->query($query);
+    if ($result) {
+        $dashboardData['expense_categories'] = [];
+        while ($row = $result->fetch_assoc()) {
+            $dashboardData['expense_categories'][] = $row;
+        }
+    }
+    
+    // Top Products/Crops
+    $query = "SELECT product_name, SUM(amount) as total 
             FROM sales 
-            WHERE MONTH(sale_date) = '$month_num' 
-            AND YEAR(sale_date) = '$year'";
-    $result = $conn->query($sql);
-    $row = $result->fetch_assoc();
-    $sales_data[] = $row['total'];
+            GROUP BY product_name 
+            ORDER BY total DESC 
+            LIMIT 5";
+    $result = $conn->query($query);
+    if ($result) {
+        $dashboardData['top_products'] = [];
+        while ($row = $result->fetch_assoc()) {
+            $dashboardData['top_products'][] = $row;
+        }
+    }
     
-    // Get monthly expenses
-    $sql = "SELECT COALESCE(SUM(amount), 0) AS total 
-            FROM expenses 
-            WHERE MONTH(expense_date) = '$month_num' 
-            AND YEAR(expense_date) = '$year'";
-    $result = $conn->query($sql);
-    $row = $result->fetch_assoc();
-    $expenses_data[] = $row['total'];
+    // Unpaid Invoices
+    $query = "SELECT 
+                i.invoice_id, 
+                i.invoice_no, 
+                c.full_name as client_name, 
+                i.total_amount, 
+                i.due_date 
+              FROM invoices i 
+              JOIN clients c ON i.client_id = c.client_id 
+              WHERE i.payment_status IN ('Unpaid', 'Partial') 
+              ORDER BY i.due_date ASC 
+              LIMIT 5";
+    $result = $conn->query($query);
+    if ($result) {
+        $dashboardData['unpaid_invoices'] = [];
+        while ($row = $result->fetch_assoc()) {
+            $dashboardData['unpaid_invoices'][] = $row;
+        }
+    }
+    
+    // System Information
+    $query = "SELECT 
+                (SELECT COUNT(*) FROM users) as total_users,
+                (SELECT COUNT(*) FROM audit_logs WHERE DATE(timestamp) = CURRENT_DATE()) as todays_actions,
+                (SELECT COUNT(*) FROM clients) as total_clients
+              FROM dual";
+    $result = $conn->query($query);
+    if ($result) {
+        $dashboardData['system'] = $result->fetch_assoc();
+    }
+    
+    return $dashboardData;
 }
 
-// Get top products/crops
-$sql = "SELECT product_name, SUM(amount) as total 
-        FROM sales 
-        GROUP BY product_name 
-        ORDER BY total DESC 
-        LIMIT 5";
-$result = $conn->query($sql);
-$top_products = [];
-while ($row = $result->fetch_assoc()) {
-    $top_products[] = $row;
-}
 
-// Get recent transactions
-// Get recent transactions
-$sql = "SELECT 'Sale' as type, s.product_name as description, s.amount, s.sale_date as transaction_date, s.payment_status
-        FROM sales s
-        UNION ALL
-        SELECT 'Expense' as type, e.expense_reason as description, e.amount, e.expense_date as transaction_date, e.payment_status
-        FROM expenses e
-        ORDER BY transaction_date DESC
-        LIMIT 5";
-$result = $conn->query($sql);
-$recent_transactions = [];
-while ($row = $result->fetch_assoc()) {
-    $recent_transactions[] = $row;
-}
+// Get all dashboard data
+$dashboardData = getDashboardData();
 
+
+// Close the database connection
 $conn->close();
 
-// Calculate metrics
-$profit_margin = ($total_sales > 0) ? ($net_profit / $total_sales) * 100 : 0;
-$debt_ratio = ($total_receivables > 0) ? ($total_payables / $total_receivables) * 100 : 0;
 ?>
 
 <!DOCTYPE html>
@@ -101,350 +346,9 @@ $debt_ratio = ($total_receivables > 0) ? ($total_payables / $total_receivables) 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="../assets/css/admin_dashboard.css">
     <style>
-        :root {
-        --primary-color: #2c6e49;
-        --secondary-color: #4c956c;
-        --accent-color: #fefee3;
-        --light-color: #f0f3f5;
-        --dark-color: #1a3a1a;
-    }
-    
-    .navbar {
-        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        padding: 0.8rem 1.5rem;
-    }
-    
-    .navbar-brand {
-        font-weight: 700;
-        font-size: 1.4rem;
-        display: flex;
-        align-items: center;
-    }
-    
-    .navbar-brand i {
-        margin-right: 10px;
-        font-size: 1.8rem;
-    }
-    
-    .footer {
-        background-color: var(--light-color);
-        padding: 1.5rem;
-        margin-top: 2rem;
-        text-align: center;
-        font-size: 0.9rem;
-    }
 
-    /* Logo container styles */
-    .logo-container-nav {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background-color: black;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        overflow: hidden;
-    }
-    
-    .logo-nav {
-        width: 100%;
-        height: auto;
-    }
-    
-    .logo-container {
-        text-align: center;
-        margin: 0 auto 20px;
-        width: 150px;
-        height: 120px;
-        border-radius: 50%;
-        background-color: black;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        overflow: hidden;
-    }
-    
-    /* Completely updated dropdown system */
-    .custom-dropdown {
-        position: relative;
-        display: inline-block;
-    }
-    
-    .dropdown-content {
-        display: none;
-        position: absolute;
-        background-color: white;
-        min-width: 200px;
-        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-        z-index: 1000;
-        border-radius: 4px;
-        margin-top: 5px;
-        left: 0;
-        padding: 5px 0;
-    }
-    
-    .dropdown-content a {
-        color: var(--dark-color);
-        padding: 10px 16px;
-        text-decoration: none;
-        display: block;
-        text-align: left;
-        transition: background-color 0.3s;
-        white-space: nowrap;
-        font-size: 0.9rem;
-    }
-    
-    .dropdown-content a:hover {
-        background-color: var(--light-color);
-    }
-    
-    /* Show class for JavaScript toggle */
-    .show {
-        display: block;
-    }
-    
-    /* Main nav buttons */
-    .nav-btn {
-        color: white;
-        background-color: transparent;
-        border: 1px solid white;
-        padding: 0.375rem 0.75rem;
-        border-radius: 0.25rem;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        margin-right: 0.5rem;
-        transition: all 0.3s;
-        cursor: pointer;
-    }
-    
-    .nav-btn:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-        color: white;
-    }
-    
-    /* Dropdown nav items */
-    .dropdown-content a {
-        color: var(--dark-color);
-        border: none;
-        width: 100%;
-        text-align: left;
-        padding: 10px 16px;
-        margin: 0;
-        border-radius: 0;
-        display: flex;
-        align-items: center;
-    }
-    
-    .dropdown-content a:hover {
-        background-color: var(--light-color);
-        color: var(--dark-color);
-    }
-    
-    .nav-btn i {
-        margin-right: 5px;
-    }
-
-    /* Toggle button active style */
-    .nav-btn.active {
-        background-color: rgba(255, 255, 255, 0.3);
-    }
-        .dashboard-card {
-            border-radius: 12px;
-            box-shadow: 0 6px 10px rgba(0,0,0,0.08);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            border: none;
-            margin-bottom: 20px;
-            overflow: hidden;
-        }
-        
-        .dashboard-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 20px rgba(0,0,0,0.12);
-        }
-        
-        .card-header {
-            font-weight: 600;
-            padding: 1rem 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .card-header i {
-            font-size: 1.5rem;
-        }
-        
-        .card-body {
-            padding: 1.5rem;
-        }
-        
-        .metric-value {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-        
-        .metric-label {
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-        
-        .chart-container {
-            position: relative;
-            height: 350px;
-            margin-bottom: 20px;
-        }
-        
-        .progress {
-            height: 0.8rem;
-            border-radius: 0.4rem;
-        }
-        
-        .table-container {
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            background-color: white;
-        }
-        
-        .dashboard-table {
-            margin-bottom: 0;
-        }
-        
-        .dashboard-table thead {
-            background-color: var(--light-color);
-        }
-        
-        .tag {
-            border-radius: 20px;
-            padding: 4px 10px;
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-        
-        .quick-actions {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        
-        .quick-action-btn {
-            flex: 1;
-            text-align: center;
-            padding: 15px 10px;
-            border-radius: 10px;
-            background-color: white;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-            transition: all 0.3s ease;
-            border: none;
-            text-decoration: none;
-            color: var(--dark-color);
-        }
-        
-        .quick-action-btn:hover {
-            background-color: var(--primary-color);
-            color: white;
-            transform: translateY(-3px);
-        }
-        
-        .quick-action-btn i {
-            font-size: 1.5rem;
-            display: block;
-            margin-bottom: 8px;
-        }
-        
-        .quick-action-btn a {
-           text-decoration: none;
-        }
-        
-        .progress-card {
-            padding: 1.5rem;
-            border-radius: 12px;
-            background-color: white;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-        }
-        
-        .progress-title {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            font-weight: 500;
-        }
-        
-        .weather-widget {
-            background: linear-gradient(135deg, #4DA0B0, #D39D38);
-            color: white;
-            padding: 1.5rem;
-            border-radius: 12px;
-            height: 100%;
-        }
-        
-        .sales-card {
-            background-color: rgba(44, 110, 73, 0.1);
-            border-left: 5px solid var(--primary-color);
-        }
-        
-        .expenses-card {
-            background-color: rgba(220, 53, 69, 0.1);
-            border-left: 5px solid #dc3545;
-        }
-        
-        .profit-card {
-            background-color: rgba(13, 110, 253, 0.1);
-            border-left: 5px solid #0d6efd;
-        }
-        
-        .receivables-card {
-            background-color: rgba(255, 193, 7, 0.1);
-            border-left: 5px solid #ffc107;
-        }
-        
-        .payables-card {
-            background-color: rgba(108, 117, 125, 0.1);
-            border-left: 5px solid #6c757d;
-        }
-        
-        .footer {
-            background-color: var(--light-color);
-            padding: 1.5rem;
-            margin-top: 2rem;
-            text-align: center;
-            font-size: 0.9rem;
-        }
- /* New styles specifically for the navbar logo container */
- .logo-container-nav {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background-color: black;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        overflow: hidden;
-    }
-    
-    .logo-nav {
-        width: 100%;
-        height: auto;
-    }
-    
-    /* Keep your original logo-container for the login/register pages */
-    .logo-container {
-        text-align: center;
-        margin: 0 auto 20px;
-        width: 150px;
-        height: 120px;
-        border-radius: 50%;
-        background-color: black;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        overflow: hidden;
-    }
     </style>
 </head>
 <body>
@@ -643,7 +547,7 @@ window.onclick = function(event) {
                         <i class="fas fa-coins"></i>
                     </div>
                     <div class="card-body">
-                        <div class="metric-value"><?php echo number_format($total_sales, 2); ?> GHS</div>
+                    <div class="metric-value"> <?php echo number_format($dashboardData['finance']['total_sales'] ?? 0.00, 2); ?>GHS</div>
                         <div class="metric-label">
                             <?php 
                                 $prev_month_sales = isset($sales_data[4]) ? $sales_data[4] : 1;
@@ -661,6 +565,34 @@ window.onclick = function(event) {
                 </div>
             </div>
 
+
+            <div class="col-md-4 col-lg-2-4">
+    <div class="dashboard-card revenue-card">
+        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+            <span>Total Revenue</span>
+            <i class="fas fa-wallet"></i>
+        </div>
+        <div class="card-body">
+            <div class="metric-value h4 font-weight-bold">
+                <?php echo number_format($dashboardData['finance']['total_revenue'] ?? 0.00, 2); ?> GHS
+            </div>
+            <div class="metric-label small mt-2">
+                <span class="text-success d-block mb-1">
+                    <i class="fas fa-check-circle"></i> 
+                    <?php echo number_format($dashboardData['finance']['total_sales'] ?? 0.00, 2); ?> GHS Paid
+                </span>
+                <span class="text-danger d-block">
+                    <i class="fas fa-exclamation-circle"></i> 
+                    <?php echo number_format($dashboardData['finance']['total_receivables'] ?? 0.00, 2); ?> GHS Not Paid
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
             <div class="col-md-4 col-lg-2-4">
                 <div class="dashboard-card expenses-card">
                     <div class="card-header bg-transparent border-0">
@@ -668,7 +600,7 @@ window.onclick = function(event) {
                         <i class="fas fa-file-invoice-dollar"></i>
                     </div>
                     <div class="card-body">
-                        <div class="metric-value"><?php echo number_format($total_expenses, 2); ?> GHS</div>
+                    <div class="metric-value"><?php echo number_format($dashboardData['finance']['total_expenses'] ?? 0.00, 2); ?> GHS</div>
                         <div class="metric-label">
                             <?php 
                                 $prev_month_expenses = isset($expenses_data[4]) ? $expenses_data[4] : 1;
@@ -693,11 +625,17 @@ window.onclick = function(event) {
                         <i class="fas fa-hand-holding-usd"></i>
                     </div>
                     <div class="card-body">
-                        <div class="metric-value"><?php echo number_format($net_profit, 2); ?> GHS</div>
+                        <div class="metric-value"><?php echo number_format($dashboardData['finance']['net_profit'] ?? 0.00, 2); ?> GHS
+                        </div>
                         <div class="metric-label">
-                            <span class="<?php echo ($profit_margin >= 30) ? 'text-success' : (($profit_margin >= 15) ? 'text-warning' : 'text-danger'); ?>">
-                                <?php echo number_format($profit_margin, 1); ?>% profit margin
-                            </span>
+                        <?php
+$profit_margin = $dashboardData['finance']['profit_margin'] ?? 0;
+?>
+
+<span class="<?php echo ($profit_margin >= 30) ? 'text-success' : (($profit_margin >= 15) ? 'text-warning' : 'text-danger'); ?>">
+    <?php echo number_format($profit_margin, 1); ?>% profit margin
+</span>
+
                         </div>
                     </div>
                 </div>
@@ -710,7 +648,7 @@ window.onclick = function(event) {
                         <i class="fas fa-hand-holding-dollar"></i>
                     </div>
                     <div class="card-body">
-                        <div class="metric-value"><?php echo number_format($total_receivables, 2); ?> GHS</div>
+                    <div class="metric-value"><?php echo number_format($dashboardData['finance']['total_receivables'] ?? 0, 2); ?> GHS</div>
                         <div class="metric-label">
                             Clients owe us this amount
                         </div>
@@ -725,33 +663,379 @@ window.onclick = function(event) {
                         <i class="fas fa-money-bill-wave"></i>
                     </div>
                     <div class="card-body">
-                        <div class="metric-value"><?php echo number_format($total_payables, 2); ?> GHS</div>
+                    <div class="metric-value"><?php echo number_format($dashboardData['finance']['total_payables'] ?? 0, 2); ?> GHS</div>
                         <div class="metric-label">
                             We owe others this amount
                         </div>
                     </div>
                 </div>
+
+
             </div>
         </div>
 
-        <div class="row">
-            <!-- Chart Section -->
-            <div class="col-md-8">
-                <div class="dashboard-card">
-                    <div class="card-header">
-                        Financial Performance (Last 6 Months)
-                        <div>
-                            <button class="btn btn-sm btn-outline-secondary">Monthly</button>
-                            <button class="btn btn-sm btn-outline-secondary">Quarterly</button>
-                            <button class="btn btn-sm btn-outline-secondary">Yearly</button>
+
+                  <!-- Crop Management Section -->
+                  <div class="row">
+    <div class="col-md-12">
+        <h4 class="section-title">Crop Management</h4>
+    </div>
+    
+    <!-- Crop Statistics Cards -->
+    <div class="col-md-3">
+        <div class="dashboard-card crops-card">
+            <div class="card-header bg-transparent border-0">
+                Total Crops
+                <i class="fas fa-seedling"></i>
+            </div>
+            <div class="card-body">
+                <div class="metric-value"><?php echo $dashboardData['crops']['total_crops']; ?></div>
+                <div class="metric-label">
+                    Varieties being managed
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="dashboard-card cycles-card">
+            <div class="card-header bg-transparent border-0">
+                Active Cycles
+                <i class="fas fa-sync"></i>
+            </div>
+            <div class="card-body">
+                <div class="metric-value"><?php echo $dashboardData['crops']['active_cycles']; ?></div>
+                <div class="metric-label">
+                    Growing cycles in progress
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="dashboard-card tasks-card">
+            <div class="card-header bg-transparent border-0">
+                Pending Tasks
+                <i class="fas fa-tasks"></i>
+            </div>
+            <div class="card-body">
+                <div class="metric-value"><?php echo $dashboardData['crops']['pending_tasks']; ?></div>
+                <div class="metric-label">
+                    Farm tasks to be completed
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="dashboard-card harvest-card">
+            <div class="card-header bg-transparent border-0">
+                Harvests This Month
+                <i class="fas fa-tractor"></i>
+            </div>
+            <div class="card-body">
+                <div class="metric-value"><?php echo $dashboardData['crops']['harvests_this_month']; ?></div>
+                <div class="metric-label">
+                    Completed harvests
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Labor Management Section -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <h4 class="section-title">Labor & HR</h4>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="dashboard-card employees-card">
+            <div class="card-header bg-transparent border-0">
+                Total Employees
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="card-body">
+                <div class="metric-value"><?php echo $dashboardData['employees']['total_employees']; ?></div>
+                <div class="metric-label">
+                    <span class="text-primary">
+                        <?php echo $dashboardData['employees']['active_employees']; ?> active
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="dashboard-card fulltime-card">
+            <div class="card-header bg-transparent border-0">
+                Fulltime Staff
+                <i class="fas fa-user-tie"></i>
+            </div>
+            <div class="card-body">
+                <div class="metric-value"><?php echo $dashboardData['employees']['fulltime_employees']; ?></div>
+                <div class="metric-label">
+                    Permanent employees
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="dashboard-card byday-card">
+            <div class="card-header bg-transparent border-0">
+                By-Day Workers
+                <i class="fas fa-user-clock"></i>
+            </div>
+            <div class="card-body">
+                <div class="metric-value"><?php echo $dashboardData['employees']['byday_employees']; ?></div>
+                <div class="metric-label">
+                    Temporary workers
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="dashboard-card labor-cost-card">
+            <div class="card-header bg-transparent border-0">
+                Monthly Labor Cost
+                <i class="fas fa-money-bill-wave"></i>
+            </div>
+            <div class="card-body">
+                <div class="metric-value"><?php echo number_format($dashboardData['labor']['monthly_labor_cost'], 2); ?> GHS</div>
+                <div class="metric-label">
+                <span class="text-danger">
+    <?php echo number_format($dashboardData['labor']['unpaid_labor_amount'] ?? 0, 2); ?> GHS unpaid
+</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Asset Management Section -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <h4 class="section-title">Assets & Equipment</h4>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="dashboard-card assets-card">
+            <div class="card-header bg-transparent border-0">
+                Farm Assets
+                <i class="fas fa-tractor"></i>
+            </div>
+            <div class="card-body">
+                <div class="metric-value"><?php echo $dashboardData['assets']['total_assets']; ?></div>
+                <div class="metric-label">
+                    <span class="text-success">
+                        <?php echo $dashboardData['assets']['active_assets']; ?> active assets
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="dashboard-card asset-transactions-card">
+            <div class="card-header bg-transparent border-0">
+                Recent Transactions
+                <i class="fas fa-exchange-alt"></i>
+            </div>
+            <div class="card-body">
+                <div class="metric-value"><?php echo $dashboardData['assets']['recent_transactions']; ?></div>
+                <div class="metric-label">
+                    Asset transactions this month
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="dashboard-card maintenance-card">
+            <div class="card-header bg-transparent border-0">
+                Unpaid Invoices
+                <i class="fas fa-file-invoice-dollar"></i>
+            </div>
+            <div class="card-body">
+                <div class="metric-value"><?php echo count($dashboardData['unpaid_invoices']); ?></div>
+                <div class="metric-label">
+                    <span class="text-warning">
+                        Outstanding payments due
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<!-- Charts and Analytics Section -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="dashboard-card">
+            <div class="card-header">
+                Expense Categories
+                <i class="fas fa-chart-pie"></i>
+            </div>
+            <div class="card-body">
+                <canvas id="expenseCategoriesChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="dashboard-card">
+            <div class="card-header">
+                Annual Performance
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="card-body">
+                <canvas id="annualPerformanceChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Unpaid Invoices and Tasks Section -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="dashboard-card">
+            <div class="card-header">
+                Unpaid Invoices
+                <i class="fas fa-file-invoice-dollar"></i>
+            </div>
+            <div class="card-body p-0">
+                <table class="table dashboard-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Invoice #</th>
+                            <th>Client</th>
+                            <th>Amount</th>
+                            <th>Due Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($dashboardData['unpaid_invoices'] as $invoice): ?>
+                        <tr>
+                            <td><?php echo $invoice['invoice_no']; ?></td>
+                            <td><?php echo $invoice['client_name']; ?></td>
+                            <td><?php echo number_format($invoice['total_amount'], 2); ?> GHS</td>
+                            <td>
+                                <?php 
+                                    $due_date = new DateTime($invoice['due_date']);
+                                    $today = new DateTime();
+                                    $days_diff = $today->diff($due_date)->days;
+                                    $past_due = $today > $due_date;
+                                    
+                                    echo $invoice['due_date'];
+                                    if ($past_due) {
+                                        echo " <span class='badge bg-danger'>Past due</span>";
+                                    } elseif ($days_diff <= 3) {
+                                        echo " <span class='badge bg-warning'>Soon</span>";
+                                    }
+                                ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="dashboard-card">
+            <div class="card-header">
+                Upcoming Farm Tasks
+                <i class="fas fa-calendar-alt"></i>
+            </div>
+            <div class="card-body p-0">
+                <table class="table dashboard-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Task</th>
+                            <th>Crop</th>
+                            <th>Type</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($dashboardData['upcoming_tasks'] as $task): ?>
+                        <tr>
+                            <td><?php echo $task['task_name']; ?></td>
+                            <td><?php echo $task['crop_name']; ?></td>
+                            <td>
+                                <span class="badge" style="background-color: <?php echo $task['color_code']; ?>">
+                                    <?php echo $task['type_name']; ?>
+                                </span>
+                            </td>
+                            <td>
+                                <?php 
+                                    $task_date = new DateTime($task['scheduled_date']);
+                                    $today = new DateTime();
+                                    $days_diff = $today->diff($task_date)->days;
+                                    
+                                    echo $task['scheduled_date'];
+                                    if ($days_diff <= 1) {
+                                        echo " <span class='badge bg-danger'>Today/Tomorrow</span>";
+                                    } elseif ($days_diff <= 3) {
+                                        echo " <span class='badge bg-warning'>Soon</span>";
+                                    }
+                                ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Information Section -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="dashboard-card">
+            <div class="card-header">
+                System Overview
+                <i class="fas fa-server"></i>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <div class="system-metric">
+                            <i class="fas fa-users fa-2x text-primary mb-2"></i>
+                            <h3><?php echo $dashboardData['system']['total_users']; ?></h3>
+                            <p>System Users</p>
                         </div>
                     </div>
-                    <div class="card-body">
-                        <div class="chart-container">
-                            <canvas id="financialChart"></canvas>
+                    <div class="col-md-4 text-center">
+                        <div class="system-metric">
+                            <i class="fas fa-user-tie fa-2x text-success mb-2"></i>
+                            <h3><?php echo $dashboardData['system']['total_clients']; ?></h3>
+                            <p>Registered Clients</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <div class="system-metric">
+                            <i class="fas fa-history fa-2x text-info mb-2"></i>
+                            <h3><?php echo $dashboardData['system']['todays_actions']; ?></h3>
+                            <p>Actions Today</p>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+        <div class="row">
+            <!-- Chart Section -->
+            <div class="col-md-8">
+                
                 
                 <div class="row">
                     <div class="col-md-6">
@@ -769,12 +1053,15 @@ window.onclick = function(event) {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php foreach ($top_products as $product): ?>
-                                        <tr>
-                                            <td><?php echo $product['product_name']; ?></td>
-                                            <td class="text-end"><?php echo number_format($product['total'], 2); ?> GHS</td>
-                                        </tr>
-                                        <?php endforeach; ?>
+                                    <?php $top_products = $dashboardData['top_products'] ?? []; ?>
+
+<?php foreach ($top_products as $product): ?>
+    <tr>
+        <td><?php echo $product['product_name']; ?></td>
+        <td class="text-end"><?php echo number_format($product['total'], 2); ?> GHS</td>
+    </tr>
+<?php endforeach; ?>
+
                                     </tbody>
                                 </table>
                             </div>
@@ -796,19 +1083,22 @@ window.onclick = function(event) {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php foreach ($recent_transactions as $tx): ?>
-                                        <tr>
-                                            <td>
-                                                <?php if ($tx['type'] == 'Sale'): ?>
-                                                <span class="tag bg-success text-white">Sale</span>
-                                                <?php else: ?>
-                                                <span class="tag bg-danger text-white">Expense</span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td><?php echo $tx['description']; ?></td>
-                                            <td class="text-end"><?php echo number_format($tx['amount'], 2); ?> GHS</td>
-                                        </tr>
-                                        <?php endforeach; ?>
+                                    <?php $recent_transactions = $dashboardData['recent_transactions'] ?? []; ?>
+
+<?php foreach ($recent_transactions as $tx): ?>
+    <tr>
+        <td>
+            <?php if ($tx['type'] == 'Sale'): ?>
+                <span class="tag bg-success text-white">Sale</span>
+            <?php else: ?>
+                <span class="tag bg-danger text-white">Expense</span>
+            <?php endif; ?>
+        </td>
+        <td><?php echo $tx['description']; ?></td>
+        <td class="text-end"><?php echo number_format($tx['amount'], 2); ?> GHS</td>
+    </tr>
+<?php endforeach; ?>
+
                                     </tbody>
                                 </table>
                             </div>
@@ -843,104 +1133,38 @@ window.onclick = function(event) {
                                 <div class="progress-bar bg-primary" role="progressbar" style="width: 65%" aria-valuenow="65" aria-valuemin="0" aria-valuemax="100"></div>
                             </div>
                             
-                            <div class="progress-title">
-                                <span>Debt Ratio</span>
-                                <span><?php echo number_format($debt_ratio, 1); ?>%</span>
-                            </div>
-                            <div class="progress">
-                                <div class="progress-bar bg-warning" role="progressbar" style="width: <?php echo min(100, $debt_ratio); ?>%" aria-valuenow="<?php echo $debt_ratio; ?>" aria-valuemin="0" aria-valuemax="100"></div>
-                            </div>
+                            <?php $debt_ratio = $dashboardData['finance']['debt_ratio'] ?? 0; ?>
+
+<div class="progress-title">
+    <span>Debt Ratio</span>
+    <span><?php echo number_format($debt_ratio, 1); ?>%</span>
+</div>
+<div class="progress">
+    <div class="progress-bar bg-warning" role="progressbar"
+         style="width: <?php echo min(100, $debt_ratio); ?>%"
+         aria-valuenow="<?php echo $debt_ratio; ?>" aria-valuemin="0" aria-valuemax="100">
+    </div>
+</div>
+
                         </div>
                     </div>
                 </div>
                 
                 <!-- Weather Widget (Placeholder) -->
-                <div class="dashboard-card">
-                    <div class="card-header">
-                        Weather Forecast
-                        <i class="fas fa-cloud-sun"></i>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="weather-widget">
-                            <div class="d-flex justify-content-between">
-                                <div>
-                                    <h3 class="mb-0">28°C</h3>
-                                    <p>Partly Cloudy</p>
-                                </div>
-                                <div>
-                                    <i class="fas fa-cloud-sun fa-3x"></i>
-                                </div>
-                            </div>
-                            <hr>
-                            <div class="row text-center">
-                                <div class="col">
-                                    <div>Thu</div>
-                                    <i class="fas fa-sun"></i>
-                                    <div>29°C</div>
-                                </div>
-                                <div class="col">
-                                    <div>Fri</div>
-                                    <i class="fas fa-cloud-rain"></i>
-                                    <div>25°C</div>
-                                </div>
-                                <div class="col">
-                                    <div>Sat</div>
-                                    <i class="fas fa-cloud"></i>
-                                    <div>26°C</div>
-                                </div>
-                                <div class="col">
-                                    <div>Sun</div>
-                                    <i class="fas fa-sun"></i>
-                                    <div>30°C</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Calendar Reminders -->
-                <div class="dashboard-card">
-                    <div class="card-header">
-                        Upcoming Tasks
-                        <i class="fas fa-calendar-check"></i>
-                    </div>
-                    <div class="card-body p-0">
-                        <ul class="list-group list-group-flush">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <div class="fw-bold">Pay suppliers</div>
-                                    <small class="text-muted">April 05, 2025</small>
-                                </div>
-                                <span class="badge bg-danger rounded-pill">2 days</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <div class="fw-bold">Harvest Maize</div>
-                                    <small class="text-muted">April 10, 2025</small>
-                                </div>
-                                <span class="badge bg-warning rounded-pill">7 days</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <div class="fw-bold">Team Meeting</div>
-                                    <small class="text-muted">April 15, 2025</small>
-                                </div>
-                                <span class="badge bg-info rounded-pill">12 days</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
+              
+
+
+<!-- JavaScript for Charts -->
+
+
+<!-- Additional CSS for Dashboard -->
+<style>
+
+</style>
         </div>
     </div>
     
-    <footer class="footer">
-        <div class="container">
-            <p>Jubert Farms</p>
-            <p>Food is Health | Food is Wealth | Food is Life.</p>
-            <p>© <?php echo date('Y'); ?> Farm Finance Management System. All rights reserved.</p>
-        </div>
-    </footer>
+   
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -1030,5 +1254,128 @@ window.onclick = function(event) {
 
         
     </script>
+
+
+<footer class="footer">
+        <div class="container">
+            <p>Jubert Farms</p>
+            <p>Food is Health | Food is Wealth | Food is Life.</p>
+            <p>© <?php echo date('Y'); ?> Farm Finance Management System. All rights reserved.</p>
+        </div>
+    </footer>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Expense Categories Chart
+    var expenseCategoriesCtx = document.getElementById('expenseCategoriesChart').getContext('2d');
+    var expenseCategories = <?php echo json_encode(array_column($dashboardData['expense_categories'], 'category_name')); ?>;
+    var expenseValues = <?php echo json_encode(array_column($dashboardData['expense_categories'], 'total')); ?>;
+    
+    var expenseCategoriesChart = new Chart(expenseCategoriesCtx, {
+        type: 'doughnut',
+        data: {
+            labels: expenseCategories,
+            datasets: [{
+                data: expenseValues,
+                backgroundColor: [
+                    '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
+                    '#5a5c69', '#858796', '#6610f2', '#6f42c1', '#20c9a6'
+                ],
+                hoverBorderColor: "rgba(234, 236, 244, 1)",
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            tooltips: {
+                callbacks: {
+                    label: function(tooltipItem, data) {
+                        var dataset = data.datasets[tooltipItem.datasetIndex];
+                        var total = dataset.data.reduce(function(previousValue, currentValue) {
+                            return previousValue + currentValue;
+                        });
+                        var currentValue = dataset.data[tooltipItem.index];
+                        var percentage = Math.floor(((currentValue/total) * 100)+0.5);
+                        return data.labels[tooltipItem.index] + ': ' + 
+                            currentValue.toFixed(2) + ' GHS (' + percentage + '%)';
+                    }
+                }
+            },
+            legend: {
+                position: 'bottom',
+                labels: {
+                    boxWidth: 12
+                }
+            },
+            cutoutPercentage: 70
+        }
+    });
+    
+    // Annual Performance Chart
+    var annualPerformanceCtx = document.getElementById('annualPerformanceChart').getContext('2d');
+    var months = <?php echo json_encode(array_column($dashboardData['monthly_sales_chart'], 'month')); ?>;
+    var salesData = <?php echo json_encode(array_column($dashboardData['monthly_sales_chart'], 'total')); ?>;
+    var expensesData = <?php echo json_encode(array_column($dashboardData['monthly_expenses_chart'], 'total')); ?>;
+    
+    // Calculate profit data
+    var profitData = [];
+    for (var i = 0; i < salesData.length; i++) {
+        var expense = expensesData[i] || 0;
+        profitData.push(salesData[i] - expense);
+    }
+    
+    var annualPerformanceChart = new Chart(annualPerformanceCtx, {
+        type: 'line',
+        data: {
+            labels: months,
+            datasets: [
+                {
+                    label: 'Sales',
+                    data: salesData,
+                    backgroundColor: 'rgba(78, 115, 223, 0.05)',
+                    borderColor: 'rgba(78, 115, 223, 1)',
+                    pointBackgroundColor: 'rgba(78, 115, 223, 1)',
+                    tension: 0.3
+                },
+                {
+                    label: 'Expenses',
+                    data: expensesData,
+                    backgroundColor: 'rgba(231, 74, 59, 0.05)',
+                    borderColor: 'rgba(231, 74, 59, 1)',
+                    pointBackgroundColor: 'rgba(231, 74, 59, 1)',
+                    tension: 0.3
+                },
+                {
+                    label: 'Profit',
+                    data: profitData,
+                    backgroundColor: 'rgba(28, 200, 138, 0.05)',
+                    borderColor: 'rgba(28, 200, 138, 1)',
+                    pointBackgroundColor: 'rgba(28, 200, 138, 1)',
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                yAxes: [{
+                    ticks: {
+                        beginAtZero: true,
+                        callback: function(value) {
+                            return value.toLocaleString() + ' GHS';
+                        }
+                    }
+                }]
+            },
+            tooltips: {
+                callbacks: {
+                    label: function(tooltipItem, data) {
+                        var label = data.datasets[tooltipItem.datasetIndex].label || '';
+                        return label + ': ' + tooltipItem.yLabel.toLocaleString() + ' GHS';
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
 </body>
 </html>

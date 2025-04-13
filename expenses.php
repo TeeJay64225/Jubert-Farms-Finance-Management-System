@@ -18,9 +18,36 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $category_id = $_POST['category_id'];
             $vendor_name = $_POST['vendor_name'];
             $notes = $_POST['notes'];
+            
+            // Handle receipt file upload
+            $receipt_file = null;
+            if(isset($_FILES['receipt']) && $_FILES['receipt']['error'] == 0) {
+                $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+                $file_type = $_FILES['receipt']['type'];
+                
+                if(in_array($file_type, $allowed_types)) {
+                    $upload_dir = "uploads/receipts/";
+                    
+                    // Create directory if it doesn't exist
+                    if (!file_exists($upload_dir)) {
+                        mkdir($upload_dir, 0777, true);
+                    }
+                    
+                    $filename = time() . '_' . basename($_FILES['receipt']['name']);
+                    $target_file = $upload_dir . $filename;
+                    
+                    if(move_uploaded_file($_FILES['receipt']['tmp_name'], $target_file)) {
+                        $receipt_file = $target_file;
+                    } else {
+                        $upload_error = "Failed to upload receipt file.";
+                    }
+                } else {
+                    $upload_error = "Invalid file type. Please upload a JPEG, PNG, GIF, or PDF file.";
+                }
+            }
 
-            $sql = "INSERT INTO expenses (expense_reason, amount, expense_date, payment_status, category_id, vendor_name, notes)
-                    VALUES ('$expense_reason', '$amount', '$expense_date', '$payment_status', $category_id, '$vendor_name', '$notes')";
+            $sql = "INSERT INTO expenses (expense_reason, amount, expense_date, payment_status, category_id, vendor_name, notes, receipt_file)
+                    VALUES ('$expense_reason', '$amount', '$expense_date', '$payment_status', $category_id, '$vendor_name', '$notes', " . ($receipt_file ? "'$receipt_file'" : "NULL") . ")";
             
             if ($conn->query($sql) === TRUE) {
                 $message = "Expense record added successfully!";
@@ -37,9 +64,45 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $category_id = $_POST['category_id'];
             $vendor_name = $_POST['vendor_name'];
             $notes = $_POST['notes'];
+            
+            // Get existing receipt file information
+            $result = $conn->query("SELECT receipt_file FROM expenses WHERE expense_id=$expense_id");
+            $current_data = $result->fetch_assoc();
+            $receipt_file = $current_data['receipt_file'];
+            
+            // Handle receipt file update
+            if(isset($_FILES['receipt']) && $_FILES['receipt']['error'] == 0) {
+                $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+                $file_type = $_FILES['receipt']['type'];
+                
+                if(in_array($file_type, $allowed_types)) {
+                    $upload_dir = "uploads/receipts/";
+                    
+                    // Create directory if it doesn't exist
+                    if (!file_exists($upload_dir)) {
+                        mkdir($upload_dir, 0777, true);
+                    }
+                    
+                    $filename = time() . '_' . basename($_FILES['receipt']['name']);
+                    $target_file = $upload_dir . $filename;
+                    
+                    if(move_uploaded_file($_FILES['receipt']['tmp_name'], $target_file)) {
+                        // Delete old file if it exists
+                        if($receipt_file && file_exists($receipt_file)) {
+                            unlink($receipt_file);
+                        }
+                        $receipt_file = $target_file;
+                    } else {
+                        $upload_error = "Failed to upload receipt file.";
+                    }
+                } else {
+                    $upload_error = "Invalid file type. Please upload a JPEG, PNG, GIF, or PDF file.";
+                }
+            }
 
             $sql = "UPDATE expenses SET expense_reason='$expense_reason', amount='$amount', expense_date='$expense_date', 
-                    payment_status='$payment_status', category_id=$category_id, vendor_name='$vendor_name', notes='$notes' 
+                    payment_status='$payment_status', category_id=$category_id, vendor_name='$vendor_name', notes='$notes', 
+                    receipt_file=" . ($receipt_file ? "'$receipt_file'" : "NULL") . " 
                     WHERE expense_id=$expense_id";
 
             if ($conn->query($sql) === TRUE) {
@@ -54,9 +117,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 // Delete expense
 if (isset($_GET['delete'])) {
     $expense_id = $_GET['delete'];
+    
+    // Get receipt file information before deleting the record
+    $result = $conn->query("SELECT receipt_file FROM expenses WHERE expense_id=$expense_id");
+    $file_data = $result->fetch_assoc();
+    
     $sql = "DELETE FROM expenses WHERE expense_id=$expense_id";
 
     if ($conn->query($sql) === TRUE) {
+        // Delete the file if it exists
+        if($file_data['receipt_file'] && file_exists($file_data['receipt_file'])) {
+            unlink($file_data['receipt_file']);
+        }
         $message = "Expense record deleted successfully!";
     } else {
         $error = "Error: " . $conn->error;
@@ -103,6 +175,24 @@ include 'views/header.php';
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="assets/css/bootstrap.min.css">
+    <style>
+        .receipt-thumbnail {
+            max-width: 100px;
+            max-height: 60px;
+            cursor: pointer;
+        }
+        .receipt-preview-modal .modal-body {
+            text-align: center;
+        }
+        .receipt-preview-modal img {
+            max-width: 100%;
+            max-height: 80vh;
+        }
+        .receipt-preview-modal object {
+            width: 100%;
+            height: 80vh;
+        }
+    </style>
 </head>
 <body>
 <div class="container mt-4">
@@ -115,13 +205,17 @@ include 'views/header.php';
     <?php if (isset($error)): ?>
         <div class="alert alert-danger"><?= $error ?></div>
     <?php endif; ?>
+    
+    <?php if (isset($upload_error)): ?>
+        <div class="alert alert-warning"><?= $upload_error ?></div>
+    <?php endif; ?>
 
     <div class="card mb-4">
         <div class="card-header">
             <?= $edit_data ? 'Edit Expense' : 'Add New Expense' ?>
         </div>
         <div class="card-body">
-            <form method="post" action="expenses.php">
+            <form method="post" action="expenses.php" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="<?= $edit_data ? 'update' : 'add' ?>">
                 <?php if ($edit_data): ?>
                     <input type="hidden" name="expense_id" value="<?= $edit_data['expense_id'] ?>">
@@ -178,6 +272,24 @@ include 'views/header.php';
                     </div>
                 </div>
                 
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="receipt" class="form-label">Receipt (Optional)</label>
+                        <input type="file" class="form-control" id="receipt" name="receipt" accept="image/jpeg,image/png,image/gif,application/pdf">
+                        <div class="form-text">Upload receipt image (JPEG, PNG, GIF) or PDF file (max 5MB)</div>
+                        
+                        <?php if ($edit_data && $edit_data['receipt_file']): ?>
+                            <div class="mt-2">
+                                <p>Current receipt file: 
+                                    <a href="<?= $edit_data['receipt_file'] ?>" target="_blank">
+                                        <?= basename($edit_data['receipt_file']) ?>
+                                    </a>
+                                </p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                
                 <div class="mb-3">
                     <button type="submit" class="btn btn-primary"><?= $edit_data ? 'Update' : 'Add' ?> Expense</button>
                     <?php if ($edit_data): ?>
@@ -209,6 +321,7 @@ include 'views/header.php';
                             <th>Status</th>
                             <th>Category</th>
                             <th>Vendor</th>
+                            <th>Receipt</th>
                             <th>Notes</th>
                             <th>Actions</th>
                         </tr>
@@ -228,6 +341,50 @@ include 'views/header.php';
                                     </td>
                                     <td><?= $expense['category_name'] ?? 'Uncategorized' ?></td>
                                     <td><?= $expense['vendor_name'] ?></td>
+                                    <td>
+                                        <?php if ($expense['receipt_file']): ?>
+                                            <?php 
+                                            $file_ext = pathinfo($expense['receipt_file'], PATHINFO_EXTENSION);
+                                            $is_image = in_array(strtolower($file_ext), ['jpg', 'jpeg', 'png', 'gif']);
+                                            ?>
+                                            
+                                            <?php if ($is_image): ?>
+                                                <img src="<?= $expense['receipt_file'] ?>" class="receipt-thumbnail" 
+                                                     data-bs-toggle="modal" data-bs-target="#receiptModal<?= $expense['expense_id'] ?>" alt="Receipt">
+                                            <?php else: ?>
+                                                <a href="<?= $expense['receipt_file'] ?>" target="_blank" class="btn btn-sm btn-outline-info">
+                                                    <i class="fas fa-file-pdf"></i> View PDF
+                                                </a>
+                                            <?php endif; ?>
+                                            
+                                            <!-- Receipt Preview Modal -->
+                                            <div class="modal fade receipt-preview-modal" id="receiptModal<?= $expense['expense_id'] ?>" tabindex="-1" aria-hidden="true">
+                                                <div class="modal-dialog modal-lg">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title">Receipt for <?= $expense['expense_reason'] ?></h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <?php if ($is_image): ?>
+                                                                <img src="<?= $expense['receipt_file'] ?>" alt="Receipt">
+                                                            <?php else: ?>
+                                                                <object data="<?= $expense['receipt_file'] ?>" type="application/pdf">
+                                                                    <p>Unable to display PDF. <a href="<?= $expense['receipt_file'] ?>" target="_blank">Download</a> instead.</p>
+                                                                </object>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <a href="<?= $expense['receipt_file'] ?>" download class="btn btn-primary">Download</a>
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <?php else: ?>
+                                            <span class="text-muted">No receipt</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td><?= $expense['notes'] ?></td>
                                     <td>
                                         <a href="expenses.php?edit=<?= $expense['expense_id'] ?>" class="btn btn-sm btn-primary">Edit</a>
@@ -238,7 +395,7 @@ include 'views/header.php';
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="9" class="text-center">No expense records found</td>
+                                <td colspan="10" class="text-center">No expense records found</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
@@ -342,6 +499,14 @@ include 'views/header.php';
                         text: 'Payment Status'
                     }
                 }
+            }
+        });
+        
+        // Set maximum file size for receipt upload
+        document.getElementById('receipt').addEventListener('change', function() {
+            if (this.files[0].size > 5 * 1024 * 1024) {
+                alert('Error: File size exceeds 5MB limit');
+                this.value = '';
             }
         });
     });
