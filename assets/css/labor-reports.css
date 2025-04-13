@@ -1,0 +1,321 @@
+/* Labor Cost Reports - Custom CSS */
+
+/* General Page Styling */
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.container-fluid {
+    padding-top: 15px;
+    padding-bottom: 30px;
+}
+
+/* Page Title Styling */
+h1 {
+    color: #254165;
+    font-weight: 600;
+    margin-bottom: 15px;
+    border-bottom: 3px solid #4e73df;
+    padding-bottom: 8px;
+    display: inline-block;
+}
+
+/* Breadcrumb Styling */
+.breadcrumb {
+    background-color: transparent;
+    padding: 0;
+    margin-bottom: 20px;
+}
+
+.breadcrumb-item a {
+    color: #4e73df;
+    text-decoration: none;
+}
+
+.breadcrumb-item a:hover {
+    text-decoration: underline;
+    color: #224abe;
+}
+
+.breadcrumb-item.active {
+    color: #5a5c69;
+    font-weight: 500;
+}
+
+/* Card Styling */
+.card {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+    margin-bottom: 25px;
+}
+
+.card-header {
+    background-color: #f8f9fc;
+    border-bottom: 1px solid #e3e6f0;
+    padding: 15px 20px;
+    font-weight: 500;
+    color: #4e73df;
+    display: flex;
+    align-items: center;
+}
+
+.card-header i {
+    margin-right: 10px;
+}
+
+.card-body {
+    padding: 20px;
+}
+
+/* Filter Form Styling */
+.form-label {
+    font-weight: 500;
+    color: #5a5c69;
+    margin-bottom: 5px;
+}
+
+.form-control, .form-select {
+    border-radius: 6px;
+    border: 1px solid #d1d3e2;
+    padding: 10px 15px;
+    font-size: 0.9rem;
+    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #bac8f3;
+    box-shadow: 0 0 0 0.25rem rgba(78, 115, 223, 0.25);
+}
+
+.btn-primary {
+    background-color: #4e73df;
+    border-color: #4e73df;
+    padding: 10px 15px;
+    font-weight: 500;
+    border-radius: 6px;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-primary:hover {
+    background-color: #2e59d9;
+    border-color: #2653d4;
+    transform: translateY(-2px);
+}
+
+/* Stats Cards */
+.card.bg-primary {
+    background: linear-gradient(135deg, #4e73df, #224abe) !important;
+}
+
+.card.bg-success {
+    background: linear-gradient(135deg, #1cc88a, #169a6b) !important;
+}
+
+.card.bg-info {
+    background: linear-gradient(135deg, #36b9cc, #258391) !important;
+}
+
+.card.text-white .card-body {
+    padding: 20px;
+}
+
+.card.text-white h5 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.card.text-white small {
+    opacity: 0.8;
+}
+
+.card.text-white h3 {
+    font-weight: 700;
+    margin-top: 5px;
+}
+
+/* Table Styling */
+.table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+
+.table thead th {
+    background-color: #f8f9fc;
+    color: #5a5c69;
+    font-weight: 600;
+    border-bottom: 2px solid #e3e6f0;
+    padding: 12px;
+    vertical-align: middle;
+}
+
+.table tbody td {
+    color: #5a5c69;
+    padding: 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(242, 242, 242, 0.5);
+}
+
+.table-bordered th, .table-bordered td {
+    border: 1px solid #e3e6f0;
+}
+
+.table tfoot th, .table tfoot td {
+    font-weight: 700;
+    background-color: #eaecf4;
+}
+
+.table-primary {
+    background-color: #cfe2ff;
+}
+
+/* Export Button */
+.btn-success {
+    background-color: #1cc88a;
+    border-color: #1cc88a;
+    font-weight: 500;
+    padding: 8px 15px;
+    border-radius: 6px;
+}
+
+.btn-success:hover {
+    background-color: #169a6b;
+    border-color: #169a6b;
+    transform: translateY(-2px);
+}
+
+/* Chart Container Styling */
+canvas {
+    max-width: 100%;
+}
+
+/* DataTables Custom Styling */
+.dataTables_wrapper .dataTables_length, 
+.dataTables_wrapper .dataTables_filter {
+    margin-bottom: 15px;
+    color: #5a5c69;
+}
+
+.dataTables_wrapper .dataTables_length select, 
+.dataTables_wrapper .dataTables_filter input {
+    border: 1px solid #d1d3e2;
+    border-radius: 6px;
+    padding: 6px 10px;
+}
+
+.dataTables_wrapper .dataTables_info {
+    color: #5a5c69;
+    padding-top: 10px;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    border-radius: 6px;
+    padding: 5px 12px;
+    margin: 0 3px;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: #4e73df;
+    border-color: #4e73df;
+    color: white !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background: #eaecf4;
+    border-color: #eaecf4;
+}
+
+/* Responsive Improvements */
+@media (max-width: 992px) {
+    .card.text-white h5 {
+        font-size: 1rem;
+    }
+    
+    .card.text-white h3 {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    
+    .card {
+        margin-bottom: 15px;
+    }
+    
+    .card-header {
+        padding: 12px 15px;
+    }
+    
+    .card-body {
+        padding: 15px;
+    }
+    
+    .table thead th, .table tbody td {
+        padding: 10px 8px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Print Friendly Styles */
+@media print {
+    .breadcrumb, 
+    .btn-success,
+    .dataTables_filter,
+    .dataTables_length,
+    .dataTables_paginate {
+        display: none !important;
+    }
+    
+    .card {
+        box-shadow: none;
+        border: 1px solid #ddd;
+        margin-bottom: 20px;
+    }
+    
+    .card-header {
+        background-color: #f8f9fc !important;
+        color: #000 !important;
+
+    }
+    
+    .table {
+        width: 100% !important;
+    }
+    
+    .table-bordered th, .table-bordered td {
+        border: 1px solid #ddd !important;
+    }
+}
+
+/* Custom tooltip styling */
+.tooltip-inner {
+    background-color: #4e73df;
+    max-width: 250px;
+    padding: 10px;
+    border-radius: 6px;
+}
+
+.bs-tooltip-auto[x-placement^=top] .arrow::before, 
+.bs-tooltip-top .arrow::before {
+    border-top-color: #4e73df;
+}
+
+/* Excel export button hover effect */
+#exportBtn {
+    transition: all 0.3s ease;
+}
+
+#exportBtn:hover {
+    box-shadow: 0 5px 15px rgba(28, 200, 138, 0.4);
+}

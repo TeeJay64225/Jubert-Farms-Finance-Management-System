@@ -1,0 +1,187 @@
+/* Jubert Farms Planner Dashboard - Custom CSS */
+
+/* General Styling */
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.container {
+    max-width: 1400px;
+}
+
+/* Header Styling */
+h1 {
+    color: #2c5e2e;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    border-bottom: 3px solid #5a9e5f;
+    padding-bottom: 10px;
+}
+
+.card-header h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0;
+    color: #2c5e2e;
+}
+
+/* Card Styling */
+.card {
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: none;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.card-header {
+    background-color: #f0f8f0;
+    border-bottom: 2px solid #d1e7d1;
+    padding: 12px 20px;
+}
+
+.card-body {
+    padding: 20px;
+}
+
+/* Stats Cards */
+.card.bg-success {
+    background: linear-gradient(135deg, #2c5e2e, #5a9e5f) !important;
+}
+
+.card.bg-primary {
+    background: linear-gradient(135deg, #265985, #4a89c4) !important;
+}
+
+.card.bg-warning {
+    background: linear-gradient(135deg, #b36b00, #e08f2f) !important;
+}
+
+.card.bg-danger {
+    background: linear-gradient(135deg, #9e2c2c, #d45959) !important;
+}
+
+.card.text-white .card-body {
+    padding: 15px 20px;
+}
+
+.card.text-white .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 5px;
+    opacity: 0.9;
+}
+
+.card.text-white .card-text {
+    font-weight: 700;
+    margin-bottom: 0;
+}
+
+/* Table Styling */
+.table {
+    margin-bottom: 0;
+}
+
+.table thead th {
+    background-color: #f0f8f0;
+    border-bottom: 2px solid #d1e7d1;
+    font-weight: 600;
+    color: #2c5e2e;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(240, 248, 240, 0.4);
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(208, 235, 208, 0.4);
+}
+
+.table td, .table th {
+    vertical-align: middle;
+    padding: 10px 15px;
+}
+
+/* Progress Bar Styling */
+.progress {
+    height: 20px;
+    background-color: #e9ecef;
+    border-radius: 10px;
+}
+
+.progress-bar {
+    border-radius: 10px;
+}
+
+/* Badge Styling */
+.badge {
+    padding: 6px 10px;
+    font-weight: 500;
+    border-radius: 4px;
+}
+
+/* Calendar Table Styling */
+.table-bordered {
+    border: 1px solid #dee2e6;
+}
+
+.table-bordered th, .table-bordered td {
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.table-bordered th:first-child, .table-bordered td:first-child {
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Add subtle hover effect to cards */
+.card:hover {
+    transform: translateY(-5px);
+    transition: transform 0.3s ease;
+}
+
+/* Make responsive improvements */
+@media (max-width: 768px) {
+    .card.text-white .card-title {
+        font-size: 0.9rem;
+    }
+    
+    .card.text-white .card-text {
+        font-size: 1.5rem !important;
+    }
+    
+    .table {
+        font-size: 0.9rem;
+    }
+    
+    .badge {
+        font-size: 0.8rem;
+    }
+}
+
+/* Improve table responsiveness */
+.table-responsive {
+    min-height: 0.01%;
+    overflow-x: auto;
+}
+
+/* Tooltip style for crop info */
+[data-toggle="tooltip"] {
+    cursor: pointer;
+    border-bottom: 1px dotted #2c5e2e;
+}
+
+/* Highlight current season */
+.current-season {
+    font-weight: bold;
+    text-decoration: underline;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}

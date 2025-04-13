@@ -1,0 +1,276 @@
+/* Jubert Farms - Crop Management Styles */
+
+/* General Layout and Typography */
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #333;
+}
+
+.container-fluid {
+    padding: 0 2rem;
+    max-width: 1800px;
+    margin: 0 auto;
+}
+
+h1 {
+    color: #2c5e2e;
+    padding-bottom: 0.5rem;
+    border-bottom: 3px solid #5a9e5f;
+    margin-bottom: 1.5rem;
+    font-weight: 700;
+}
+
+/* Card Styling */
+.card {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+.card-header {
+    background-color: #f0f8f0;
+    border-bottom: 2px solid #d1e7d1;
+    padding: 1rem;
+    font-weight: 600;
+    color: #2c5e2e;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Form Styling */
+.form-control, .form-control-file {
+    border: 1px solid #d1e7d1;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #5a9e5f;
+    box-shadow: 0 0 0 0.2rem rgba(90, 158, 95, 0.25);
+}
+
+label {
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 0.3rem;
+}
+
+.btn-primary {
+    background-color: #2c5e2e;
+    border-color: #2c5e2e;
+}
+
+.btn-primary:hover, .btn-primary:focus {
+    background-color: #1e4420;
+    border-color: #1e4420;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.form-check-input:checked {
+    background-color: #2c5e2e;
+    border-color: #2c5e2e;
+}
+
+textarea {
+    min-height: 70px;
+}
+
+/* Table Styling */
+.table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.crop-table {
+    background-color: white;
+}
+
+.crop-table th {
+    background-color: #f0f8f0;
+    color: #2c5e2e;
+    border-top: none;
+    border-bottom: 2px solid #d1e7d1;
+    font-weight: 600;
+    padding: 0.75rem 1rem;
+}
+
+.crop-table td {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #eef5ee;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(240, 248, 240, 0.4);
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(208, 235, 208, 0.4);
+}
+
+/* Image Preview Styling */
+.preview-image {
+    max-width: 70px;
+    max-height: 70px;
+    border-radius: 5px;
+    object-fit: cover;
+    border: 1px solid #d1e7d1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+}
+
+.preview-image:hover {
+    transform: scale(1.1);
+}
+
+/* Status Badges */
+.badge-success {
+    background-color: #2c5e2e;
+}
+
+.badge-secondary {
+    background-color: #6c757d;
+}
+
+.badge {
+    padding: 0.5em 0.75em;
+    font-weight: 500;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+/* Action Buttons */
+.btn-group-sm > .btn {
+    padding: 0.25rem 0.5rem;
+    margin-right: 2px;
+}
+
+.btn-info {
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+}
+
+.btn-info:hover {
+    background-color: #138496;
+    border-color: #117a8b;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+/* Alerts */
+.alert {
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Seasons Checkboxes */
+.form-check-inline {
+    margin-right: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.form-check-label {
+    font-weight: normal;
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+    .container-fluid {
+        padding: 0 1rem;
+    }
+    
+    .col-md-4, .col-md-8 {
+        padding: 0 0.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .btn-group-sm > .btn {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.8rem;
+    }
+    
+    .preview-image {
+        max-width: 50px;
+        max-height: 50px;
+    }
+    
+    .crop-table {
+        font-size: 0.8rem;
+    }
+    
+    .crop-table td, .crop-table th {
+        padding: 0.5rem;
+    }
+}
+
+/* Form section refinements */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+small.form-text {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Required field indicator */
+label[for="crop_name"]::after, 
+label[for="category_id"]::after {
+    content: " *";
+    color: #dc3545;
+}
+
+/* Button hover transitions */
+.btn {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Custom scrollbar for better UX */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #5a9e5f;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #2c5e2e;
+}

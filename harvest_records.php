@@ -230,6 +230,7 @@ if ($cycle_id > 0) {
     <title>Harvest Records Management</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="assets/css/harvest-records.css">
     <style>
         .header-actions {
             display: flex;

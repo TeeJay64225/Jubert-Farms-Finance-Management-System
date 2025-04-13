@@ -1,0 +1,278 @@
+/* Labor Tracking - Custom CSS */
+
+/* General Page Styling */
+body {
+    background-color: #f7f9fc;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Page Header */
+h1 {
+    color: #2e4a77;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    border-bottom: 2px solid rgba(46, 74, 119, 0.2);
+    padding-bottom: 10px;
+}
+
+.breadcrumb {
+    background-color: transparent;
+    padding: 0.5rem 0;
+    margin-bottom: 1.5rem;
+}
+
+.breadcrumb-item a {
+    color: #4a77b9;
+    text-decoration: none;
+}
+
+.breadcrumb-item a:hover {
+    color: #2e4a77;
+    text-decoration: underline;
+}
+
+.breadcrumb-item.active {
+    color: #6c757d;
+    font-weight: 500;
+}
+
+/* Cards Styling */
+.card {
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    border: none;
+    margin-bottom: 24px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+    transform: translateY(-3px);
+}
+
+.card-header {
+    background-color: #f0f4f9;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 12px 20px;
+    font-weight: 600;
+    color: #2e4a77;
+    display: flex;
+    align-items: center;
+}
+
+.card-header i {
+    margin-right: 8px;
+    color: #4a77b9;
+}
+
+.card-body {
+    padding: 20px;
+}
+
+/* Form Styling */
+.form-label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.form-control, .form-select {
+    border-radius: 6px;
+    border: 1px solid #ced4da;
+    padding: 10px 15px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #4a77b9;
+    box-shadow: 0 0 0 0.2rem rgba(74, 119, 185, 0.25);
+}
+
+.form-control[readonly] {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #2e4a77;
+}
+
+textarea.form-control {
+    min-height: 100px;
+}
+
+.form-check-input:checked {
+    background-color: #4a77b9;
+    border-color: #4a77b9;
+}
+
+/* Buttons Styling */
+.btn-primary {
+    background-color: #4a77b9;
+    border-color: #4a77b9;
+    padding: 10px 20px;
+    font-weight: 500;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #2e4a77;
+    border-color: #2e4a77;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(46, 74, 119, 0.2);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+/* Alert Styling */
+.alert {
+    border-radius: 8px;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    padding: 12px 20px;
+}
+
+.alert-success {
+    background-color: #e7f4e8;
+    color: #0f5132;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+.btn-close {
+    opacity: 0.7;
+}
+
+.btn-close:hover {
+    opacity: 1;
+}
+
+/* Table Styling */
+.table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+
+.table th {
+    background-color: #f0f4f9;
+    color: #2e4a77;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    padding: 12px 15px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.table td {
+    padding: 12px 15px;
+    vertical-align: middle;
+    border-top: 1px solid #e9ecef;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(74, 119, 185, 0.05);
+}
+
+/* DataTable Customization */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+    margin-bottom: 15px;
+}
+
+.dataTables_wrapper .dataTables_length select {
+    padding: 5px 10px;
+    border-radius: 5px;
+    margin: 0 5px;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #ced4da;
+    margin-left: 8px;
+}
+
+.dataTables_wrapper .dataTables_info {
+    margin-top: 15px;
+    color: #6c757d;
+}
+
+.dataTables_wrapper .dataTables_paginate {
+    margin-top: 15px;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: 5px 12px;
+    margin: 0 3px;
+    border-radius: 4px;
+    border: 1px solid #e9ecef;
+    background-color: #fff;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background-color: #f0f4f9;
+    border-color: #ced4da;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background-color: #4a77b9;
+    border-color: #4a77b9;
+    color: #fff !important;
+}
+
+/* Custom field styling */
+#estimated_cost {
+    background-color: #f5faff;
+    font-weight: 600;
+    color: #2e4a77;
+    border-left: 3px solid #4a77b9;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 992px) {
+    .card-header {
+        padding: 10px 15px;
+    }
+    
+    .card-body {
+        padding: 15px;
+    }
+    
+    .table th, .table td {
+        padding: 10px;
+    }
+}
+
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 0 10px;
+    }
+    
+    h1 {
+        font-size: 1.8rem;
+    }
+}
+
+/* Custom Animation for Alerts */
+.alert {
+    animation: fadeInDown 0.4s ease-out;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
