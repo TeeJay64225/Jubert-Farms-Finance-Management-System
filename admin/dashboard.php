@@ -101,6 +101,20 @@ if ($result) {
     if ($result) {
         $dashboardData['crops'] = $result->fetch_assoc();
     }
+
+    // Crop Cycle Status Counts
+$query = "SELECT 
+SUM(status = 'Planned') as planned_cycles,
+SUM(status = 'In Progress') as in_progress_cycles,
+SUM(status = 'Completed') as completed_cycles,
+SUM(status = 'Failed') as failed_cycles
+FROM crop_cycles";
+
+$result = $conn->query($query);
+if ($result) {
+$dashboardData['crop_cycles'] = $result->fetch_assoc();
+}
+
     
     // Asset Overview
     $query = "SELECT 
@@ -698,19 +712,57 @@ $profit_margin = $dashboardData['finance']['profit_margin'] ?? 0;
     </div>
     
     <div class="col-md-3">
-        <div class="dashboard-card cycles-card">
-            <div class="card-header bg-transparent border-0">
-                Active Cycles
-                <i class="fas fa-sync"></i>
-            </div>
-            <div class="card-body">
-                <div class="metric-value"><?php echo $dashboardData['crops']['active_cycles']; ?></div>
-                <div class="metric-label">
-                    Growing cycles in progress
-                </div>
-            </div>
+    <div class="dashboard-card cycles-card">
+        <div class="card-header bg-transparent border-0">
+            Planned Cycles
+            <i class="fas fa-calendar-plus"></i>
+        </div>
+        <div class="card-body">
+            <div class="metric-value"><?php echo $dashboardData['crop_cycles']['planned_cycles'] ?? 0; ?></div>
+            <div class="metric-label text-muted">Planned but not started</div>
         </div>
     </div>
+</div>
+
+<div class="col-md-3">
+    <div class="dashboard-card cycles-card">
+        <div class="card-header bg-transparent border-0">
+            In Progress
+            <i class="fas fa-sync-alt"></i>
+        </div>
+        <div class="card-body">
+            <div class="metric-value text-info"><?php echo $dashboardData['crop_cycles']['in_progress_cycles'] ?? 0; ?></div>
+            <div class="metric-label text-muted">Growing cycles in progress</div>
+        </div>
+    </div>
+</div>
+
+<div class="col-md-3">
+    <div class="dashboard-card cycles-card">
+        <div class="card-header bg-transparent border-0">
+            Completed
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="card-body">
+            <div class="metric-value text-success"><?php echo $dashboardData['crop_cycles']['completed_cycles'] ?? 0; ?></div>
+            <div class="metric-label text-muted">Successfully harvested</div>
+        </div>
+    </div>
+</div>
+
+<div class="col-md-3">
+    <div class="dashboard-card cycles-card">
+        <div class="card-header bg-transparent border-0">
+            Failed
+            <i class="fas fa-times-circle"></i>
+        </div>
+        <div class="card-body">
+            <div class="metric-value text-danger"><?php echo $dashboardData['crop_cycles']['failed_cycles'] ?? 0; ?></div>
+            <div class="metric-label text-muted">Cycles that failed</div>
+        </div>
+    </div>
+</div>
+
     
     <div class="col-md-3">
         <div class="dashboard-card tasks-card">
