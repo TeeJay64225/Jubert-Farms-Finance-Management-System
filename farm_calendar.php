@@ -5,7 +5,7 @@ ini_set('display_errors', 1);
 
 include 'config/db.php';
 include 'crop/calendar_functions.php';
-require_once 'views/header.php';
+
 
 
 
@@ -428,6 +428,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'reschedule_event') {
                     <div class="legend-color" style="background-color: #ff9800;"></div>
                     <span>Harvest</span>
                 </div>
+                <div class="legend-item">
+    <div class="legend-color" style="background-color: #9c27b0;"></div>
+    <span>Crop Event</span>
+</div>
             </div>
             
             <div class="calendar-container">
@@ -669,7 +673,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'reschedule_event') {
     <div id="dayDetailsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title" id="modalDate"></h3>
+                <h3 class="modal-title" color="white" id="modalDate"></h3>
                 <span class="close-modal">&times;</span>
             </div>
             <div class="modal-body" id="modalBody">
@@ -906,53 +910,66 @@ function showDayDetails(dayElement) {
 }
         
         // Show event details modal
-        function showEventDetails(event) {
-            document.getElementById('eventModalTitle').textContent = event.title;
+        // Show event details modal
+function showEventDetails(event) {
+    document.getElementById('eventModalTitle').textContent = event.title;
+    
+    // Build detailed event information
+    let detailsHtml = `
+        <div class="event-details-content">
+            <p><strong>Type:</strong> ${event.type === 'task' ? 'Task' : (event.type === 'harvest' ? 'Harvest' : 'Crop Event')}</p>
+            <p><strong>Crop:</strong> ${event.crop}</p>`;
             
-            // Build detailed event information
-            let detailsHtml = `
-                <div class="event-details-content">
-                    <p><strong>Type:</strong> ${event.type === 'task' ? 'Task' : 'Harvest'}</p>
-                    <p><strong>Crop:</strong> ${event.crop}</p>
-                    <p><strong>Location:</strong> ${event.location || 'N/A'}</p>`;
-                    
-            if (event.type === 'task') {
-                detailsHtml += `<p><strong>Task Type:</strong> ${event.task_type}</p>`;
-                detailsHtml += `<p><strong>Status:</strong> ${event.completed == 1 ? 'Completed' : 'Pending'}</p>`;
-            } else if (event.type === 'harvest') {
-                detailsHtml += `<p><strong>Yield:</strong> ${event.quantity} ${event.unit}</p>`;
-            }
-            
-            if (event.notes) {
-                detailsHtml += `<p><strong>Notes:</strong> ${event.notes}</p>`;
-            }
-            
-            detailsHtml += `</div>`;
-            
-            document.getElementById('eventDetails').innerHTML = detailsHtml;
-            
-            // Set up action buttons
-            const editEventBtn = document.getElementById('editEventBtn');
-            const deleteEventBtn = document.getElementById('deleteEventBtn');
-            const markCompleteBtn = document.getElementById('markCompleteBtn');
-            
-            if (event.type === 'task') {
-                const taskId = event.id.replace('task_', '');
-                editEventBtn.href = `edit_task.php?id=${taskId}`;
-                deleteEventBtn.href = `delete_task.php?id=${taskId}`;
-                markCompleteBtn.href = `complete_task.php?id=${taskId}`;
-                markCompleteBtn.style.display = 'inline-block';
-                markCompleteBtn.innerHTML = `<i class="fas fa-check"></i> ${event.completed == 1 ? 'Mark Incomplete' : 'Mark Complete'}`;
-            } else {
-                const harvestId = event.id.replace('harvest_', '');
-                editEventBtn.href = `edit_harvest.php?id=${harvestId}`;
-                deleteEventBtn.href = `delete_harvest.php?id=${harvestId}`;
-                markCompleteBtn.style.display = 'none';
-            }
-            
-            // Show the modal
-            document.getElementById('eventDetailsModal').style.display = 'block';
+    if (event.location) {
+        detailsHtml += `<p><strong>Location:</strong> ${event.location}</p>`;
+    }
+    
+    if (event.type === 'task') {
+        detailsHtml += `<p><strong>Task Type:</strong> ${event.task_type}</p>`;
+        detailsHtml += `<p><strong>Status:</strong> ${event.completed == 1 ? 'Completed' : 'Pending'}</p>`;
+    } else if (event.type === 'harvest') {
+        detailsHtml += `<p><strong>Yield:</strong> ${event.quantity} ${event.unit}</p>`;
+    } else if (event.type === 'crop_event') {
+        if (event.description) {
+            detailsHtml += `<p><strong>Description:</strong> ${event.description}</p>`;
         }
+    }
+    
+    if (event.notes && event.type !== 'crop_event') {
+        detailsHtml += `<p><strong>Notes:</strong> ${event.notes}</p>`;
+    }
+    
+    detailsHtml += `</div>`;
+    
+    document.getElementById('eventDetails').innerHTML = detailsHtml;
+    
+    // Set up action buttons
+    const editEventBtn = document.getElementById('editEventBtn');
+    const deleteEventBtn = document.getElementById('deleteEventBtn');
+    const markCompleteBtn = document.getElementById('markCompleteBtn');
+    
+    if (event.type === 'task') {
+        const taskId = event.id.replace('task_', '');
+        editEventBtn.href = `task.php?id=${taskId}`;
+        deleteEventBtn.href = `task.php?id=${taskId}`;
+        markCompleteBtn.href = `task.php?id=${taskId}`;
+        markCompleteBtn.style.display = 'inline-block';
+        markCompleteBtn.innerHTML = `<i class="fas fa-check"></i> ${event.completed == 1 ? 'Mark Incomplete' : 'Mark Complete'}`;
+    } else if (event.type === 'harvest') {
+        const harvestId = event.id.replace('harvest_', '');
+        editEventBtn.href = `harvest.php?id=${harvestId}`;
+        deleteEventBtn.href = `harvest.php?id=${harvestId}`;
+        markCompleteBtn.style.display = 'none';
+    } else if (event.type === 'crop_event') {
+        const eventId = event.id.replace('crop_event_', '');
+        editEventBtn.href = `crop_events.php?edit=${eventId}`;
+        deleteEventBtn.href = `crop_events.php?delete=${eventId}`;
+        markCompleteBtn.style.display = 'none';
+    }
+    
+    // Show the modal
+    document.getElementById('eventDetailsModal').style.display = 'block';
+}
         
         // Close modals when the X is clicked
         document.querySelectorAll('.close-modal').forEach(function(closeBtn) {

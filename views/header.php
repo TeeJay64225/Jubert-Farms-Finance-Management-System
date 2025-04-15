@@ -1,3 +1,4 @@
+<link rel="icon" type="image/svg+xml" href="assets/fab.svg">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -239,6 +240,7 @@
                     <a href="harvest_records.php"><i class="fas fa-clipboard-check"></i> Harvest Records</a>
                     <a href="farm_calendar.php"><i class="fas fa-calendar-alt"></i> Farm Calendar</a>
                     <a href="task.php"><i class="fas fa-tasks"></i> Tasks</a>
+                   <!-- <a href="crop_events.php"><i class="fas fa-tasks"></i> Events for Crop</a> -->
                 </div>
             </div>
 

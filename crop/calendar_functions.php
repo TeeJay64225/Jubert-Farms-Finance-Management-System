@@ -9,9 +9,82 @@ include __DIR__ . '/../config/db.php';
 // calendar_functions.php - Functions for calendar management
 
 require_once __DIR__ . '/../config/helpers.php';
+
 //require_once 'task_functions.php';
 require_once __DIR__ . '/harvest_functions.php';
 
+
+/**
+ * Get crop events for a specific date
+ * 
+ * @param mysqli $conn Database connection
+ * @param string $date Date in Y-m-d format
+ * @return array Array of crop events for the date
+ */
+function getCropEventsForDate($conn, $date) {
+    $events = [];
+    
+    $stmt = $conn->prepare("SELECT e.*, c.crop_name FROM crop_events e 
+                           INNER JOIN crops c ON e.crop_id = c.crop_id 
+                           WHERE e.event_date = ?");
+    $stmt->bind_param("s", $date);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result && $result->num_rows > 0) {
+        while ($row = $result->fetch_assoc()) {
+            $events[] = [
+                'id' => 'crop_event_' . $row['event_id'],
+                'title' => $row['event_name'],
+                'start' => $row['event_date'],
+                'color' => '#9c27b0', // Purple color for crop events
+                'type' => 'crop_event',
+                'icon' => 'event',
+                'crop' => $row['crop_name'],
+                'description' => $row['description']
+            ];
+        }
+    }
+    
+    $stmt->close();
+    return $events;
+}
+
+/**
+ * Get crop events for a date range
+ * 
+ * @param mysqli $conn Database connection
+ * @param string $start_date Start date in Y-m-d format
+ * @param string $end_date End date in Y-m-d format
+ * @return array Array of crop events for the date range
+ */
+function getCropEventsByDateRange($conn, $start_date, $end_date) {
+    $events = [];
+    
+    $stmt = $conn->prepare("SELECT e.*, c.crop_name FROM crop_events e 
+                           INNER JOIN crops c ON e.crop_id = c.crop_id 
+                           WHERE e.event_date BETWEEN ? AND ?
+                           ORDER BY e.event_date");
+    $stmt->bind_param("ss", $start_date, $end_date);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result && $result->num_rows > 0) {
+        while ($row = $result->fetch_assoc()) {
+            $events[] = [
+                'event_id' => $row['event_id'],
+                'event_date' => $row['event_date'],
+                'event_name' => $row['event_name'],
+                'crop_name' => $row['crop_name'],
+                'description' => $row['description'],
+                'crop_id' => $row['crop_id']
+            ];
+        }
+    }
+    
+    $stmt->close();
+    return $events;
+}
 
 
 
@@ -124,7 +197,7 @@ function getEventsForDate($conn, $date) {
                 'notes' => $row['notes']
             ];
         }
-        
+
         // Query for harvests
         $sql = "SELECT h.harvest_id, c.crop_name, h.harvest_date, h.field_or_location,
                    h.quantity, h.unit, h.notes
@@ -151,16 +224,42 @@ function getEventsForDate($conn, $date) {
                 'notes' => $row['notes']
             ];
         }
+
+        // Query for crop events
+        $sql = "SELECT e.event_id, e.event_title, e.event_date, e.description, 
+                       c.crop_name, e.field_or_location
+                FROM crop_events e
+                LEFT JOIN crops c ON e.crop_id = c.crop_id
+                WHERE e.event_date = ?";
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $date);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        while ($row = $result->fetch_assoc()) {
+            $events[] = [
+                'id' => 'event_' . $row['event_id'],
+                'title' => 'Event: ' . $row['event_title'],
+                'start' => $row['event_date'],
+                'color' => '#3f51b5', // Color for crop events
+                'type' => 'event',
+                'crop' => $row['crop_name'] ?? 'N/A',
+                'location' => $row['field_or_location'] ?? 'N/A',
+                'description' => $row['description']
+            ];
+        }
+
     } catch (Exception $e) {
         error_log("Error in getEventsForDate: " . $e->getMessage());
-        // Return an empty array on error
     }
-    
+
     return $events;
 }
 
 
-// Function to build a basic calendar array for a given month
+
+
 // Function to build a basic calendar array for a given month
 function buildCalendarMonth($year, $month) {
     $num_days = date('t', mktime(0, 0, 0, $month, 1, $year));
@@ -212,25 +311,81 @@ function buildCalendarMonth($year, $month) {
 
 // Function to populate calendar with events
 function populateCalendarWithEvents($conn, $calendar, $year, $month) {
-    $events = getCalendarEvents($conn, $year, $month);
+    $start_date = sprintf('%04d-%02d-01', $year, $month);
+    $end_date = date('Y-m-t', strtotime($start_date));
     
-    foreach ($events as $event) {
-        $event_date = new DateTime($event['start']);
-        $day = (int)$event_date->format('j'); // Day of month without leading zeros
-        
-        // Find the week and day in the calendar
-        foreach ($calendar['weeks'] as &$week) {
-            foreach ($week as $day_idx => &$day_data) {
-                if ($day_data['day'] === $day) {
-                    $day_data['events'][] = $event;
-                    break 2; // Break out of both loops once found
-                }
+    // Get all events for the month
+    $tasks = getTasksByDateRange($conn, $start_date, $end_date);
+    $harvests = getHarvestsByDateRange($conn, $start_date, $end_date);
+    $crop_events = getCropEventsByDateRange($conn, $start_date, $end_date);
+    
+    // Group all events by date
+    $events_by_date = [];
+
+    // === Add tasks ===
+foreach ($tasks as $task) {
+    $date = $task['scheduled_date'];
+    $events_by_date[$date][] = [
+        'id' => 'task_' . $task['task_id'],
+        'title' => $task['task_name'],
+        'type' => 'task',
+        'color' => $task['color_code'] ?? '#666',
+        'icon' => $task['icon'] ?? 'task',
+        'task_type' => $task['type_name'] ?? 'General',
+        'crop' => $task['crop_name'] ?? 'N/A',
+        'location' => $task['field_or_location'] ?? 'N/A',
+        'completed' => $task['completion_status'] ?? 0,
+        'notes' => $task['notes'] ?? ''
+    ];
+}
+
+// === Add harvests ===
+foreach ($harvests as $harvest) {
+    $date = $harvest['harvest_date'];
+    $events_by_date[$date][] = [
+        'id' => 'harvest_' . $harvest['harvest_id'],
+        'title' => 'Harvest: ' . $harvest['crop_name'],
+        'type' => 'harvest',
+        'color' => '#ff9800',
+        'icon' => 'harvest',
+        'crop' => $harvest['crop_name'] ?? 'N/A',
+        'location' => $harvest['field_or_location'] ?? 'N/A',
+        'quantity' => $harvest['quantity'] ?? 0,
+        'unit' => $harvest['unit'] ?? 'kg',
+        'notes' => $harvest['notes'] ?? ''
+    ];
+}
+
+// === Add crop events ===
+foreach ($crop_events as $event) {
+    $date = $event['event_date'];
+    $events_by_date[$date][] = [
+        'id' => 'crop_event_' . $event['event_id'],
+        'title' => $event['event_name'],
+        'type' => 'crop_event',
+        'color' => '#9c27b0',
+        'icon' => 'event',
+        'crop' => $event['crop_name'],
+        'description' => $event['description'],
+        'location' => $event['field_or_location'] ?? 'N/A'  // Add null coalescing operator here
+    ];
+}
+
+    // === Populate calendar ===
+    foreach ($calendar['weeks'] as &$week) {
+        foreach ($week as &$day_data) {
+            if ($day_data['day'] > 0) {
+                $date = sprintf('%04d-%02d-%02d', $year, $month, $day_data['day']);
+                $day_data['events'] = $events_by_date[$date] ?? [];
+            } else {
+                $day_data['events'] = [];
             }
         }
     }
-    
+
     return $calendar;
 }
+
 
 // Generate upcoming tasks and harvests list
 function getUpcomingEvents($conn, $days = 7) {

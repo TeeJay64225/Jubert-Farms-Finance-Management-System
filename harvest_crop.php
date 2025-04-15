@@ -12,6 +12,10 @@ include 'config/db.php';
  // Near the top of your PHP file where you get other data
 // Function to get all common issues
 
+
+
+
+
 // Define the getAllIssues function here
 function getAllIssues($conn) {
     $sql = "SELECT issue_id, issue_name FROM common_issues ORDER BY issue_name";
@@ -183,12 +187,50 @@ function getGrowthStages($conn) {
 }
 
 
-
-
-
-
+function handleImageUpload() {
+    global $error;
+    
+    // Check if an image was uploaded
+    if (!isset($_FILES['image']) || $_FILES['image']['error'] === UPLOAD_ERR_NO_FILE) {
+        return null; // No image uploaded
+    }
+    
+    // Define upload directory
+    $upload_dir = 'uploads/crops/';
+    
+    // Create directory if it doesn't exist
+    if (!file_exists($upload_dir)) {
+        mkdir($upload_dir, 0755, true);
+    }
+    
+    // Get file extension
+    $file_extension = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
+    
+    // Check file type
+    $allowed_extensions = ['jpg', 'jpeg', 'png', 'JPG', 'HEIC', 'gif'];
+    if (!in_array($file_extension, $allowed_extensions)) {
+        $error = "Only JPG, JPEG, HEIC, PNG, and GIF files are allowed";
+        return null;
+    }
+    
+    // Generate a unique filename
+    $new_filename = uniqid() . '.' . $file_extension;
+    $target_file = $upload_dir . $new_filename;
+    
+    // Try to upload the file
+    if (copy($_FILES["image"]["tmp_name"], $target_file)) {
+        chmod($target_file, 0644); // Make the uploaded file readable
+        return $target_file;
+    } else {
+        $error = "Failed to upload image";
+        return null;
+    }
+}
 
 function addCrop($conn, $crop_data) {
+    // Handle image upload first
+    $image_path = handleImageUpload();
+    
     // Start transaction
     $conn->begin_transaction();
 
@@ -205,7 +247,8 @@ function addCrop($conn, $crop_data) {
         }
 
         // Set default values for optional fields
-        $image_path = $crop_data['image_path'] ?? null;
+        // Use the image path from handleImageUpload function if available, otherwise use the one from crop_data if present
+        $image_path = $image_path ?? ($crop_data['image_path'] ?? null);
         $description = $crop_data['description'] ?? null;
         $common_issues = $crop_data['common_issues'] ?? null;
         $notes = $crop_data['notes'] ?? null;
@@ -288,19 +331,37 @@ function addCrop($conn, $crop_data) {
             }
         }
         
-        // Add crop events if provided
-        if (!empty($crop_data['events'])) {
-            foreach ($crop_data['events'] as $event) {
+        // Add crop events from form data
+        if (!empty($_POST['event_date']) && is_array($_POST['event_date'])) {
+            $event_dates = $_POST['event_date'];
+            $event_names = $_POST['event_name'] ?? [];
+            $event_descriptions = $_POST['event_description'] ?? [];
+            
+            $eventCount = count($event_dates);
+            
+            for ($i = 0; $i < $eventCount; $i++) {
+                // Skip empty events
+                if (empty($event_dates[$i]) || empty($event_names[$i])) {
+                    continue;
+                }
+                
+                $event_date = $event_dates[$i];
+                $event_name = $event_names[$i];
+                $event_description = $event_descriptions[$i] ?? '';
+                
                 $sql = "INSERT INTO crop_events (event_date, event_name, crop_id, description) 
                         VALUES (?, ?, ?, ?)";
                 $stmt = $conn->prepare($sql);
                 $stmt->bind_param("ssis", 
-                    $event['date'], 
-                    $event['name'], 
+                    $event_date, 
+                    $event_name, 
                     $crop_id, 
-                    $event['description'] ?? null
+                    $event_description
                 );
-                $stmt->execute();
+                
+                if (!$stmt->execute()) {
+                    throw new Exception("Failed to add crop event: " . $stmt->error);
+                }
             }
         }
         
@@ -838,11 +899,19 @@ $conn->close();
                 </div>
                 
                 <!-- Image Upload Field -->
-                <div class="col-md-6">
-                    <label for="imagePath" class="form-label">Crop Image:</label>
-                    <input type="file" class="form-control" id="imagePath" name="imagePath">
-                    <small class="text-muted">Upload an image of the crop (optional)</small>
-                </div>
+              <!-- Image Upload Field -->
+<div class="col-md-6">
+<label for="image" class="form-label">Crop Image:</label>
+        <?php if (!empty($image_path) && file_exists($image_path)): ?>
+            <div class="mb-2">
+                <img src="<?php echo $image_path; ?>" class="preview-image" alt="Current Image">
+                <p class="text-muted">Current image</p>
+            </div>
+        <?php endif; ?>
+        <input type="file" class="form-control" id="image" name="image">
+        <small class="form-text text-muted">Upload an image of the crop (optional). Leave empty to keep current image (if editing)</small>
+
+</div>
                 
                 <!-- Description Field -->
                 <div class="col-md-6">

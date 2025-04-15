@@ -433,6 +433,25 @@ function getCropSeasons($crop_id) {
     return implode(", ", $seasons);
 }
 
+// Pagination settings
+$records_per_page = 10;
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$offset = ($page - 1) * $records_per_page;
+
+// Get total records for pagination
+$count_query = "SELECT COUNT(*) as total FROM crops";
+$count_result = $conn->query($count_query);
+$count_data = $count_result->fetch_assoc();
+$total_records = $count_data['total'];
+$total_pages = ceil($total_records / $records_per_page);
+
+// Modify your crops query to include pagination
+$crops_query = "SELECT c.*, cc.category_name 
+                FROM crops c 
+                LEFT JOIN crop_categories cc ON c.category_id = cc.category_id 
+                ORDER BY c.crop_name ASC 
+                LIMIT $offset, $records_per_page";
+$crops = $conn->query($crops_query);
 // Get data for display
 $crops = getAllCrops();
 $categories = getAllCategories();
@@ -441,13 +460,13 @@ $all_seasons = getAllSeasons();
 // Include header
 include 'views/header.php';
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crop Management</title>
+    <link rel="icon" type="image/svg+xml" href="assets/fab.svg">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
     <link rel="stylesheet" href="assets/css/crop-management.css">
@@ -462,11 +481,19 @@ include 'views/header.php';
         .crop-table td, .crop-table th {
             vertical-align: middle;
         }
+        .pagination {
+            justify-content: center;
+        }
     </style>
 </head>
 <body>
     <div class="container-fluid pt-4">
-        <h1 class="mb-4">Crop Management</h1>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Crop Management</h1>
+            <a href="add_crop.php" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add New Crop
+            </a>
+        </div>
         
         <?php if (!empty($error)): ?>
             <div class="alert alert-danger"><?php echo $error; ?></div>
@@ -477,121 +504,7 @@ include 'views/header.php';
         <?php endif; ?>
         
         <div class="row">
-            <div class="col-md-4">
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <?php echo empty($crop_id) ? 'Add New Crop' : 'Edit Crop'; ?>
-                    </div>
-                    <div class="card-body">
-                        <form method="POST" enctype="multipart/form-data">
-                            <input type="hidden" name="operation" value="<?php echo empty($crop_id) ? 'create' : 'update'; ?>">
-                            <?php if (!empty($crop_id)): ?>
-                                <input type="hidden" name="crop_id" value="<?php echo $crop_id; ?>">
-                            <?php endif; ?>
-                            
-                            <div class="form-group">
-                                <label for="crop_name">Crop Name*</label>
-                                <input type="text" class="form-control" id="crop_name" name="crop_name" value="<?php echo $crop_name; ?>" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="category_id">Category*</label>
-                                <select class="form-control" id="category_id" name="category_id" required>
-                                    <option value="">Select Category</option>
-                                    <?php while ($category = $categories->fetch_assoc()): ?>
-                                        <option value="<?php echo $category['category_id']; ?>" <?php echo ($category_id == $category['category_id']) ? 'selected' : ''; ?>>
-                                            <?php echo $category['category_name']; ?>
-                                        </option>
-                                    <?php endwhile; ?>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="seasons">Seasons</label>
-                                <div>
-                                    <?php while ($season = $all_seasons->fetch_assoc()): ?>
-                                        <div class="form-check form-check-inline">
-                                            <input class="form-check-input" type="checkbox" name="seasons[]" 
-                                                   id="season<?php echo $season['season_id']; ?>" 
-                                                   value="<?php echo $season['season_id']; ?>"
-                                                   <?php echo (in_array($season['season_id'], $seasons)) ? 'checked' : ''; ?>>
-                                            <label class="form-check-label" for="season<?php echo $season['season_id']; ?>">
-                                                <?php echo $season['season_name']; ?>
-                                            </label>
-                                        </div>
-                                    <?php endwhile; ?>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="image">Image</label>
-                                <?php if (!empty($image_path) && file_exists($image_path)): ?>
-                                    <div class="mb-2">
-                                        <img src="<?php echo $image_path; ?>" class="preview-image" alt="Current Image">
-                                        <p class="text-muted">Current image</p>
-                                    </div>
-                                <?php endif; ?>
-                                <input type="file" class="form-control-file" id="image" name="image">
-                                <small class="form-text text-muted">Leave empty to keep current image (if editing)</small>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="description">Description</label>
-                                <textarea class="form-control" id="description" name="description" rows="3"><?php echo $description; ?></textarea>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="soil_requirements">Soil Requirements</label>
-                                <textarea class="form-control" id="soil_requirements" name="soil_requirements" rows="2"><?php echo $soil_requirements; ?></textarea>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="watering_needs">Watering Needs</label>
-                                <textarea class="form-control" id="watering_needs" name="watering_needs" rows="2"><?php echo $watering_needs; ?></textarea>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="sunlight_requirements">Sunlight Requirements</label>
-                                <input type="text" class="form-control" id="sunlight_requirements" name="sunlight_requirements" value="<?php echo $sunlight_requirements; ?>">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="days_to_maturity">Days to Maturity</label>
-                                <input type="text" class="form-control" id="days_to_maturity" name="days_to_maturity" value="<?php echo $days_to_maturity; ?>">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="spacing_requirements">Spacing Requirements</label>
-                                <input type="text" class="form-control" id="spacing_requirements" name="spacing_requirements" value="<?php echo $spacing_requirements; ?>">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="common_issues">Common Issues</label>
-                                <textarea class="form-control" id="common_issues" name="common_issues" rows="2"><?php echo $common_issues; ?></textarea>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="notes">Additional Notes</label>
-                                <textarea class="form-control" id="notes" name="notes" rows="3"><?php echo $notes; ?></textarea>
-                            </div>
-                            
-                            <div class="form-group form-check">
-                                <input type="checkbox" class="form-check-input" id="is_active" name="is_active" <?php echo $is_active ? 'checked' : ''; ?>>
-                                <label class="form-check-label" for="is_active">Active</label>
-                            </div>
-                            
-                            <div class="form-group">
-                                <button type="submit" class="btn btn-primary"><?php echo empty($crop_id) ? 'Add Crop' : 'Update Crop'; ?></button>
-                                <?php if (!empty($crop_id)): ?>
-                                    <button type="button" class="btn btn-secondary" onclick="window.location.href='crops_manag.php'">Cancel</button>
-                                <?php endif; ?>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-8">
+            <div class="col-12">
                 <div class="card">
                     <div class="card-header">
                         <div class="row">
@@ -641,7 +554,7 @@ include 'views/header.php';
                                                         <a href="?view=<?php echo $crop['crop_id']; ?>" class="btn btn-info" title="View">
                                                             <i class="fas fa-eye"></i>
                                                         </a>
-                                                        <a href="?edit=<?php echo $crop['crop_id']; ?>" class="btn btn-primary" title="Edit">
+                                                        <a href="edit_crop.php?id=<?php echo $crop['crop_id']; ?>" class="btn btn-primary" title="Edit">
                                                             <i class="fas fa-edit"></i>
                                                         </a>
                                                         <form method="post" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this crop?');">
@@ -663,6 +576,31 @@ include 'views/header.php';
                                 </tbody>
                             </table>
                         </div>
+    
+                        <!-- Pagination -->
+                        <?php if ($total_pages > 1): ?>
+                        <nav aria-label="Crop pagination">
+                            <ul class="pagination">
+                                <li class="page-item <?php echo ($page <= 1) ? 'disabled' : ''; ?>">
+                                    <a class="page-link" href="?page=<?php echo $page-1; ?>" aria-label="Previous">
+                                        <span aria-hidden="true">&laquo;</span>
+                                    </a>
+                                </li>
+                                
+                                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                                    <li class="page-item <?php echo ($page == $i) ? 'active' : ''; ?>">
+                                        <a class="page-link" href="?page=<?php echo $i; ?>"><?php echo $i; ?></a>
+                                    </li>
+                                <?php endfor; ?>
+                                
+                                <li class="page-item <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?>">
+                                    <a class="page-link" href="?page=<?php echo $page+1; ?>" aria-label="Next">
+                                        <span aria-hidden="true">&raquo;</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </nav>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
