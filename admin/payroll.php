@@ -2,6 +2,8 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 session_start();
+
+// Authentication check
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
     header("Location: ../views/login.php");
     exit();
@@ -9,662 +11,975 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 
 include '../config/db.php';
 
-// Process form submissions
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Add new employee
-    if (isset($_POST['add_employee'])) {
-        $first_name = mysqli_real_escape_string($conn, $_POST['first_name']);
-        $last_name = mysqli_real_escape_string($conn, $_POST['last_name']);
-        $dob = mysqli_real_escape_string($conn, $_POST['dob']);
-        $position = mysqli_real_escape_string($conn, $_POST['position']);
-        $salary = mysqli_real_escape_string($conn, $_POST['salary']);
-        $employment_type = mysqli_real_escape_string($conn, $_POST['employment_type']);
-        $phone = mysqli_real_escape_string($conn, $_POST['phone']);
-        $email = mysqli_real_escape_string($conn, $_POST['email']);
-        $address = mysqli_real_escape_string($conn, $_POST['address']);
-        $emergency_contact = mysqli_real_escape_string($conn, $_POST['emergency_contact']);
-        $status = mysqli_real_escape_string($conn, $_POST['status']);
-        
-        // Check if email already exists
-        $check_email = mysqli_query($conn, "SELECT email FROM employees WHERE email = '$email'");
-        if (mysqli_num_rows($check_email) > 0) {
-            $_SESSION['error'] = "Error: Email already exists in the database!";
-            header("Location: ../admin/payroll.php");
-            exit();
-        }
-        
-        // Handle photo upload
-        $photo = NULL;
-        if (isset($_FILES['photo']) && $_FILES['photo']['error'] == 0) {
-            // Use absolute path instead of relative path
-            $base_path = dirname(dirname(__FILE__)); // Go up one directory level from current script
-            $target_dir = $base_path . "/uploads/employees/";
-            
-            // For debugging
-            error_log("Base path: " . $base_path);
-            error_log("Target directory: " . $target_dir);
-            
-            // Create the directory with proper permissions if it doesn't exist
-            if (!file_exists($target_dir)) {
-                if (!mkdir($target_dir, 0777, true)) {
-                    $_SESSION['error'] = "Failed to create upload directory. Permission denied.";
-                    header("Location: ../admin/payroll.php");
-                    exit();
-                }
-            }
-            
-            // Force permissions on the directory
-            chmod($target_dir, 0777);
-            
-            // Check if directory is writable
-            if (!is_writable($target_dir)) {
-                $_SESSION['error'] = "Upload directory is not writable. Please check permissions.";
-                header("Location: ../admin/payroll.php");
-                exit();
-            }
-            
-            $file_extension = strtolower(pathinfo($_FILES["photo"]["name"], PATHINFO_EXTENSION));
-            $new_filename = uniqid() . '.' . $file_extension;
-            $target_file = $target_dir . $new_filename;
-            
-            $allowed_extensions = array("jpg", "jpeg", "png");
-            if (in_array($file_extension, $allowed_extensions)) {
-                // Ensure temporary file is readable
-                if (is_readable($_FILES["photo"]["tmp_name"])) {
-                    // For debugging
-                    error_log("Temp file: " . $_FILES["photo"]["tmp_name"]);
-                    error_log("Target file: " . $target_file);
-                    
-                    if (copy($_FILES["photo"]["tmp_name"], $target_file)) {
-                        $photo = $new_filename;
-                        chmod($target_file, 0644); // Make the uploaded file readable
-                    } else {
-                        $error = error_get_last();
-                        $_SESSION['error'] = "Error copying photo: " . ($error ? $error['message'] : "Unknown error");
-                        header("Location: ../admin/payroll.php");
-                        exit();
-                    }
-                } else {
-                    $_SESSION['error'] = "Error: Cannot read the temporary file.";
-                    header("Location: ../admin/payroll.php");
-                    exit();
-                }
-            } else {
-                $_SESSION['error'] = "Error: Only JPG, JPEG, and PNG files are allowed.";
-                header("Location: ../admin/payroll.php");
-                exit();
-            }
-        }
-        
-        $sql = "INSERT INTO employees (first_name, last_name, dob, position, salary, employment_type, phone, email, address, emergency_contact, photo, status) 
-                VALUES ('$first_name', '$last_name', '$dob', '$position', '$salary', '$employment_type', '$phone', '$email', '$address', '$emergency_contact', " . ($photo ? "'$photo'" : "NULL") . ", '$status')";
-        
-        if (mysqli_query($conn, $sql)) {
-            // Log this action
-            $user_id = $_SESSION['user_id'];
-            $action = "Added new employee: $first_name $last_name";
-            mysqli_query($conn, "INSERT INTO audit_logs (user_id, action) VALUES ('$user_id', '$action')");
-            
-            $_SESSION['success'] = "Employee added successfully!";
-        } else {
-            $_SESSION['error'] = "Error adding employee: " . mysqli_error($conn);
-        }
-        
-        header("Location: ../admin/payroll.php");
-        exit();
+
+
+// Function to get employee details
+function getEmployeeDetails($conn, $employee_id) {
+    $sql = "SELECT * FROM employees WHERE id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $employee_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_assoc();
+}
+
+// Function to calculate salary based on employee type
+function calculateSalary($employee, $deductions = [], $additions = []) {
+    $base_salary = $employee['salary'];
+    
+    // Add up all deductions
+    $total_deductions = 0;
+    foreach ($deductions as $deduction) {
+        $total_deductions += $deduction['amount'];
     }
     
-    // Update employee
-    if (isset($_POST['update_employee'])) {
-        $id = mysqli_real_escape_string($conn, $_POST['id']);
-        $first_name = mysqli_real_escape_string($conn, $_POST['first_name']);
-        $last_name = mysqli_real_escape_string($conn, $_POST['last_name']);
-        $dob = mysqli_real_escape_string($conn, $_POST['dob']);
-        $position = mysqli_real_escape_string($conn, $_POST['position']);
-        $salary = mysqli_real_escape_string($conn, $_POST['salary']);
-        $employment_type = mysqli_real_escape_string($conn, $_POST['employment_type']);
-        $phone = mysqli_real_escape_string($conn, $_POST['phone']);
-        $email = mysqli_real_escape_string($conn, $_POST['email']);
-        $address = mysqli_real_escape_string($conn, $_POST['address']);
-        $emergency_contact = mysqli_real_escape_string($conn, $_POST['emergency_contact']);
-        $status = mysqli_real_escape_string($conn, $_POST['status']);
-        
-        // Check if the email already exists for another employee
-        $check_email = mysqli_query($conn, "SELECT id FROM employees WHERE email = '$email' AND id != '$id'");
-        if (mysqli_num_rows($check_email) > 0) {
-            $_SESSION['error'] = "Error: Email already exists for another employee!";
-            header("Location: ../admin/payroll.php");
-            exit();
-        }
-        
-        // Handle photo upload
-        $photo_sql = "";
-        if (isset($_FILES['photo']) && $_FILES['photo']['error'] == 0) {
-            // Use absolute path instead of relative path
-            $base_path = dirname(dirname(__FILE__)); // Go up one directory level from current script
-            $target_dir = $base_path . "/uploads/employees/";
-            
-            // For debugging
-            error_log("Base path: " . $base_path);
-            error_log("Target directory: " . $target_dir);
-            
-            // Create the directory with proper permissions if it doesn't exist
-            if (!file_exists($target_dir)) {
-                if (!mkdir($target_dir, 0777, true)) {
-                    $_SESSION['error'] = "Failed to create upload directory. Permission denied.";
-                    header("Location: ../admin/payroll.php");
-                    exit();
-                }
-            }
-            
-            // Force permissions on the directory
-            chmod($target_dir, 0777);
-            
-            // Check if directory is writable
-            if (!is_writable($target_dir)) {
-                $_SESSION['error'] = "Upload directory is not writable. Please check permissions.";
-                header("Location: ../admin/payroll.php");
-                exit();
-            }
-            
-            $file_extension = strtolower(pathinfo($_FILES["photo"]["name"], PATHINFO_EXTENSION));
-            $new_filename = uniqid() . '.' . $file_extension;
-            $target_file = $target_dir . $new_filename;
-            
-            $allowed_extensions = array("jpg", "jpeg", "png");
-            if (in_array($file_extension, $allowed_extensions)) {
-                // For debugging
-                error_log("Temp file: " . $_FILES["photo"]["tmp_name"]);
-                error_log("Target file: " . $target_file);
-                
-                if (copy($_FILES["photo"]["tmp_name"], $target_file)) {
-                    chmod($target_file, 0644); // Make the uploaded file readable
-                    
-                    // Get existing photo and delete if exists
-                    $result = mysqli_query($conn, "SELECT photo FROM employees WHERE id = '$id'");
-                    $row = mysqli_fetch_assoc($result);
-                    if ($row['photo'] && file_exists($target_dir . $row['photo'])) {
-                        unlink($target_dir . $row['photo']);
-                    }
-                    
-                    $photo_sql = ", photo = '$new_filename'";
-                } else {
-                    $error = error_get_last();
-                    $_SESSION['error'] = "Error copying photo: " . ($error ? $error['message'] : "Unknown error");
-                    header("Location: ../admin/payroll.php");
-                    exit();
-                }
-            } else {
-                $_SESSION['error'] = "Error: Only JPG, JPEG, and PNG files are allowed.";
-                header("Location: ../admin/payroll.php");
-                exit();
-            }
-        }
-        
-        $sql = "UPDATE employees SET 
-                first_name = '$first_name', 
-                last_name = '$last_name', 
-                dob = '$dob', 
-                position = '$position', 
-                salary = '$salary', 
-                employment_type = '$employment_type', 
-                phone = '$phone', 
-                email = '$email', 
-                address = '$address', 
-                emergency_contact = '$emergency_contact', 
-                status = '$status'
-                $photo_sql
-                WHERE id = '$id'";
-        
-        if (mysqli_query($conn, $sql)) {
-            // Log this action
-            $user_id = $_SESSION['user_id'];
-            $action = "Updated employee: $first_name $last_name (ID: $id)";
-            mysqli_query($conn, "INSERT INTO audit_logs (user_id, action) VALUES ('$user_id', '$action')");
-            
-            $_SESSION['success'] = "Employee updated successfully!";
-        } else {
-            $_SESSION['error'] = "Error updating employee: " . mysqli_error($conn);
-        }
-        
-        header("Location: ../admin/payroll.php");
-        exit();
+    // Add up all additions/bonuses
+    $total_additions = 0;
+    foreach ($additions as $addition) {
+        $total_additions += $addition['amount'];
     }
     
-    // Delete employee
-    if (isset($_POST['delete_employee'])) {
-        $id = mysqli_real_escape_string($conn, $_POST['delete_id']);
+    // Calculate final salary
+    $final_salary = $base_salary + $total_additions - $total_deductions;
+    return [
+        'base_salary' => $base_salary,
+        'deductions' => $total_deductions,
+        'additions' => $total_additions,
+        'final_salary' => $final_salary
+    ];
+}
+
+// Add deduction functionality
+function addDeduction($conn, $employee_id, $description, $amount, $date) {
+    $sql = "INSERT INTO payroll_deductions (employee_id, description, amount, deduction_date) 
+            VALUES (?, ?, ?, ?)";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("isds", $employee_id, $description, $amount, $date);
+    return $stmt->execute();
+}
+
+// Add addition/bonus functionality
+function addAddition($conn, $employee_id, $description, $amount, $date) {
+    $sql = "INSERT INTO payroll_additions (employee_id, description, amount, addition_date) 
+            VALUES (?, ?, ?, ?)";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("isds", $employee_id, $description, $amount, $date);
+    return $stmt->execute();
+}
+
+// Get all deductions for an employee
+function getDeductions($conn, $employee_id, $start_date = null, $end_date = null) {
+    $sql = "SELECT * FROM payroll_deductions WHERE employee_id = ?";
+    
+    if ($start_date && $end_date) {
+        $sql .= " AND deduction_date BETWEEN ? AND ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("iss", $employee_id, $start_date, $end_date);
+    } else {
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("i", $employee_id);
+    }
+    
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_all(MYSQLI_ASSOC);
+}
+
+// Get all additions for an employee
+function getAdditions($conn, $employee_id, $start_date = null, $end_date = null) {
+    $sql = "SELECT * FROM payroll_additions WHERE employee_id = ?";
+    
+    if ($start_date && $end_date) {
+        $sql .= " AND addition_date BETWEEN ? AND ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("iss", $employee_id, $start_date, $end_date);
+    } else {
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("i", $employee_id);
+    }
+    
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_all(MYSQLI_ASSOC);
+}
+
+// Process payroll for an employee
+function processPayroll($conn, $employee_id, $payment_date, $notes = '') {
+    $employee = getEmployeeDetails($conn, $employee_id);
+    if (!$employee) {
+        return false;
+    }
+    
+    // Get deductions and additions for the current pay period
+    $payPeriodStart = date('Y-m-01', strtotime($payment_date)); // First day of month
+    $payPeriodEnd = date('Y-m-t', strtotime($payment_date)); // Last day of month
+    
+    $deductions = getDeductions($conn, $employee_id, $payPeriodStart, $payPeriodEnd);
+    $additions = getAdditions($conn, $employee_id, $payPeriodStart, $payPeriodEnd);
+    
+    // Calculate final salary
+    $salary_details = calculateSalary($employee, $deductions, $additions);
+    
+    // Insert into payroll table
+    $sql = "INSERT INTO payroll (employee_id, amount, base_salary, total_deductions, total_additions, payment_date, notes) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param(
+        "iddddss", 
+        $employee_id, 
+        $salary_details['final_salary'], 
+        $salary_details['base_salary'],
+        $salary_details['deductions'],
+        $salary_details['additions'],
+        $payment_date,
+        $notes
+    );
+    
+    if ($stmt->execute()) {
+        $payroll_id = $conn->insert_id;
         
-        // Get employee details for logging
-        $result = mysqli_query($conn, "SELECT first_name, last_name, photo FROM employees WHERE id = '$id'");
-        $employee = mysqli_fetch_assoc($result);
-        
-        $sql = "DELETE FROM employees WHERE id = '$id'";
-        
-        if (mysqli_query($conn, $sql)) {
-            // Delete employee photo if exists
-            $base_path = dirname(dirname(__FILE__));
-            $target_dir = $base_path . "/uploads/employees/";
-            
-            if ($employee['photo'] && file_exists($target_dir . $employee['photo'])) {
-                unlink($target_dir . $employee['photo']);
-            }
-            
-            // Log this action
-            $user_id = $_SESSION['user_id'];
-            $action = "Deleted employee: " . $employee['first_name'] . " " . $employee['last_name'] . " (ID: $id)";
-            mysqli_query($conn, "INSERT INTO audit_logs (user_id, action) VALUES ('$user_id', '$action')");
-            
-            $_SESSION['success'] = "Employee deleted successfully!";
-        } else {
-            $_SESSION['error'] = "Error deleting employee: " . mysqli_error($conn);
+        // Link deductions to this payroll entry
+        foreach ($deductions as $deduction) {
+            $sql = "UPDATE payroll_deductions SET payroll_id = ? WHERE id = ?";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("ii", $payroll_id, $deduction['id']);
+            $stmt->execute();
         }
         
-        header("Location: ../admin/payroll.php");
-        exit();
+        // Link additions to this payroll entry
+        foreach ($additions as $addition) {
+            $sql = "UPDATE payroll_additions SET payroll_id = ? WHERE id = ?";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("ii", $payroll_id, $addition['id']);
+            $stmt->execute();
+        }
+        
+        return $payroll_id;
+    }
+    
+    return false;
+}
+
+// Generate automated payroll for all full-time employees
+function generateAutomatedPayroll($conn, $payment_date) {
+    $sql = "SELECT id FROM employees WHERE employment_type = 'Fulltime' AND status = 'Active'";
+    $result = $conn->query($sql);
+    $processed_count = 0;
+    
+    if ($result->num_rows > 0) {
+        while ($row = $result->fetch_assoc()) {
+            if (processPayroll($conn, $row['id'], $payment_date)) {
+                $processed_count++;
+            }
+        }
+    }
+    
+    return $processed_count;
+}
+
+// Get payroll history for an employee
+function getPayrollHistory($conn, $employee_id, $limit = 10) {
+    $sql = "SELECT * FROM payroll WHERE employee_id = ? ORDER BY payment_date DESC LIMIT ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ii", $employee_id, $limit);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_all(MYSQLI_ASSOC);
+}
+
+// Get a specific payroll record
+function getPayrollRecord($conn, $payroll_id) {
+    $sql = "SELECT p.*, e.first_name, e.last_name, e.position, e.employment_type 
+            FROM payroll p 
+            JOIN employees e ON p.employee_id = e.id 
+            WHERE p.id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $payroll_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_assoc();
+}
+
+// Generate PDF payslip
+function generatePayslip($conn, $payroll_id) {
+    // Redirect to the dedicated payslip generator
+    header("Location: ../payslip_generator.php?payroll_id=$payroll_id");
+    exit;
+}
+
+
+// Create required tables if they don't exist
+function createRequiredTables($conn) {
+    // Create payroll_deductions table
+    $sql = "CREATE TABLE IF NOT EXISTS payroll_deductions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        employee_id INT NOT NULL,
+        payroll_id INT DEFAULT NULL,
+        description VARCHAR(255) NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        deduction_date DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+        FOREIGN KEY (payroll_id) REFERENCES payroll(id) ON DELETE SET NULL
+    )";
+    $conn->query($sql);
+    
+    // Create payroll_additions table
+    $sql = "CREATE TABLE IF NOT EXISTS payroll_additions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        employee_id INT NOT NULL,
+        payroll_id INT DEFAULT NULL,
+        description VARCHAR(255) NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        addition_date DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+        FOREIGN KEY (payroll_id) REFERENCES payroll(id) ON DELETE SET NULL
+    )";
+    $conn->query($sql);
+    
+    // Alter payroll table to add necessary columns
+    $sql = "ALTER TABLE payroll 
+            ADD COLUMN base_salary DECIMAL(10,2) DEFAULT 0 AFTER amount,
+            ADD COLUMN total_deductions DECIMAL(10,2) DEFAULT 0 AFTER base_salary,
+            ADD COLUMN total_additions DECIMAL(10,2) DEFAULT 0 AFTER total_deductions,
+            ADD COLUMN notes TEXT AFTER payment_date";
+    
+    try {
+        $conn->query($sql);
+    } catch (Exception $e) {
+        // Columns might already exist, that's okay
+    }
+    
+    // Ensure uploads directory exists
+    $uploads_dir = '../uploads/payslips';
+    if (!file_exists($uploads_dir)) {
+        mkdir($uploads_dir, 0755, true);
     }
 }
 
-// Get all employees
-$sql = "SELECT * FROM employees ORDER BY last_name, first_name";
-$result = mysqli_query($conn, $sql);
-$employees = mysqli_fetch_all($result, MYSQLI_ASSOC);
-include '../views/pay_header.php';
-?>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+// Initialize tables
+createRequiredTables($conn);
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    
-<div class="container-fluid px-4">
-    <h1 class="mt-4">Employee Management</h1>
-    <ol class="breadcrumb mb-4">
-        <li class="breadcrumb-item"><a href="../index.php">Dashboard</a></li>
-        <li class="breadcrumb-item active">Employees</li>
-    </ol>
-    
-    <?php if (isset($_SESSION['success'])): ?>
-        <div class="alert alert-success"><?php echo $_SESSION['success']; unset($_SESSION['success']); ?></div>
-    <?php endif; ?>
-    
-    <?php if (isset($_SESSION['error'])): ?>
-        <div class="alert alert-danger"><?php echo $_SESSION['error']; unset($_SESSION['error']); ?></div>
-    <?php endif; ?>
-    
-    <div class="card mb-4">
-        <div class="card-header">
-            <i class="fas fa-users me-1"></i>
-            Employees
-            <button type="button" class="btn btn-primary float-end" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">
-                <i class="fas fa-plus"></i> Add Employee
-            </button>
-        </div>
-        <div class="card-body">
-            <table id="employeesTable" class="table table-striped table-bordered">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Photo</th>
-                        <th>Name</th>
-                        <th>Position</th>
-                        <th>Employment Type</th>
-                        <th>Salary</th>
-                        <th>Contact</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($employees as $employee): ?>
-                    <tr>
-                        <td><?php echo $employee['id']; ?></td>
-                        <td>
-                            <?php if ($employee['photo']): ?>
-                                <img src="../uploads/employees/<?php echo $employee['photo']; ?>" width="50" height="50" class="rounded-circle">
-                            <?php else: ?>
-                                <img src="../assets/img/default-avatar.png" width="50" height="50" class="rounded-circle">
-                            <?php endif; ?>
-                        </td>
-                        <td><?php echo $employee['last_name'] . ', ' . $employee['first_name']; ?></td>
-                        <td><?php echo $employee['position']; ?></td>
-                        <td><?php echo $employee['employment_type']; ?></td>
-                        <td><?php echo number_format($employee['salary'], 2); ?></td>
-                        <td>
-                            <small>
-                                <strong>Phone:</strong> <?php echo $employee['phone']; ?><br>
-                                <strong>Email:</strong> <?php echo $employee['email']; ?>
-                            </small>
-                        </td>
-                        <td>
-                            <span class="badge bg-<?php echo $employee['status'] === 'Active' ? 'success' : ($employee['status'] === 'Suspended' ? 'warning' : 'danger'); ?>">
-                                <?php echo $employee['status']; ?>
-                            </span>
-                        </td>
-                        <td>
-                            <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#viewEmployeeModal<?php echo $employee['id']; ?>">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editEmployeeModal<?php echo $employee['id']; ?>">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteEmployeeModal<?php echo $employee['id']; ?>">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- Add Employee Modal -->
-<div class="modal fade" id="addEmployeeModal" tabindex="-1" aria-labelledby="addEmployeeModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addEmployeeModalLabel">Add New Employee</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form action="../admin/payroll.php" method="post" enctype="multipart/form-data">
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="first_name" class="form-label">First Name</label>
-                            <input type="text" class="form-control" id="first_name" name="first_name" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="last_name" class="form-label">Last Name</label>
-                            <input type="text" class="form-control" id="last_name" name="last_name" required>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="dob" class="form-label">Date of Birth</label>
-                            <input type="date" class="form-control" id="dob" name="dob" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="position" class="form-label">Position</label>
-                            <select class="form-select" id="position" name="position" required>
-                                <option value="">Select Position</option>
-                                <option value="C.E.O">C.E.O</option>
-                                <option value="Manager">Manager</option>
-                                <option value="Marketing Director">Marketing Director</option>
-                                <option value="Supervisor">Supervisor</option>
-                                <option value="Laborer">Laborer</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="salary" class="form-label">Salary</label>
-                            <input type="number" class="form-control" id="salary" name="salary" step="0.01" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="employment_type" class="form-label">Employment Type</label>
-                            <select class="form-select" id="employment_type" name="employment_type" required>
-                                <option value="">Select Type</option>
-                                <option value="Fulltime">Fulltime</option>
-                                <option value="By-Day">By-Day</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="phone" class="form-label">Phone</label>
-                            <input type="text" class="form-control" id="phone" name="phone" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email" name="email" required>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="address" class="form-label">Address</label>
-                        <textarea class="form-control" id="address" name="address" rows="2" required></textarea>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="emergency_contact" class="form-label">Emergency Contact</label>
-                            <input type="text" class="form-control" id="emergency_contact" name="emergency_contact" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="status" class="form-label">Status</label>
-                            <select class="form-select" id="status" name="status" required>
-                                <option value="Active" selected>Active</option>
-                                <option value="Suspended">Suspended</option>
-                                <option value="Terminated">Terminated</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="photo" class="form-label">Employee Photo</label>
-                        <input type="file" class="form-control" id="photo" name="photo" accept="image/jpeg, image/png">
-                        <small class="form-text text-muted">Upload a clear photo of the employee (JPG, JPEG, or PNG format)</small>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" name="add_employee" class="btn btn-primary">Add Employee</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Employee View/Edit/Delete Modals -->
-<?php foreach ($employees as $employee): ?>
-<!-- View Employee Modal -->
-<div class="modal fade" id="viewEmployeeModal<?php echo $employee['id']; ?>" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Employee Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row">
-                    <div class="col-md-4 text-center mb-3">
-                        <?php if ($employee['photo']): ?>
-                            <img src="../uploads/employees/<?php echo $employee['photo']; ?>" class="img-fluid rounded" style="max-height: 200px;">
-                        <?php else: ?>
-                            <img src="../assets/img/default-avatar.png" class="img-fluid rounded" style="max-height: 200px;">
-                        <?php endif; ?>
-                    </div>
-                    <div class="col-md-8">
-                        <h4><?php echo $employee['first_name'] . ' ' . $employee['last_name']; ?></h4>
-                        <p class="badge bg-<?php echo $employee['status'] === 'Active' ? 'success' : ($employee['status'] === 'Suspended' ? 'warning' : 'danger'); ?>">
-                            <?php echo $employee['status']; ?>
-                        </p>
-                        <p><strong>Position:</strong> <?php echo $employee['position']; ?></p>
-                        <p><strong>Employment Type:</strong> <?php echo $employee['employment_type']; ?></p>
-                        <p><strong>Salary:</strong> <?php echo number_format($employee['salary'], 2); ?></p>
-                    </div>
-                </div>
-                
-                <hr>
-                
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Date of Birth:</strong> <?php echo date('M d, Y', strtotime($employee['dob'])); ?></p>
-                        <p><strong>Phone:</strong> <?php echo $employee['phone']; ?></p>
-                        <p><strong>Email:</strong> <?php echo $employee['email']; ?></p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Address:</strong> <?php echo $employee['address']; ?></p>
-                        <p><strong>Emergency Contact:</strong> <?php echo $employee['emergency_contact']; ?></p>
-                        <p><strong>Employed Since:</strong> <?php echo date('M d, Y', strtotime($employee['created_at'])); ?></p>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Edit Employee Modal -->
-<div class="modal fade" id="editEmployeeModal<?php echo $employee['id']; ?>" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Edit Employee</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form action="../admin/payroll.php" method="post" enctype="multipart/form-data">
-                <input type="hidden" name="id" value="<?php echo $employee['id']; ?>">
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_first_name<?php echo $employee['id']; ?>" class="form-label">First Name</label>
-                            <input type="text" class="form-control" id="edit_first_name<?php echo $employee['id']; ?>" name="first_name" value="<?php echo $employee['first_name']; ?>" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_last_name<?php echo $employee['id']; ?>" class="form-label">Last Name</label>
-                            <input type="text" class="form-control" id="edit_last_name<?php echo $employee['id']; ?>" name="last_name" value="<?php echo $employee['last_name']; ?>" required>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_dob<?php echo $employee['id']; ?>" class="form-label">Date of Birth</label>
-                            <input type="date" class="form-control" id="edit_dob<?php echo $employee['id']; ?>" name="dob" value="<?php echo $employee['dob']; ?>" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_position<?php echo $employee['id']; ?>" class="form-label">Position</label>
-                            <select class="form-select" id="edit_position<?php echo $employee['id']; ?>" name="position" required>
-                                <option value="C.E.O" <?php echo $employee['position'] === 'C.E.O' ? 'selected' : ''; ?>>C.E.O</option>
-                                <option value="Manager" <?php echo $employee['position'] === 'Manager' ? 'selected' : ''; ?>>Manager</option>
-                                <option value="Marketing Director" <?php echo $employee['position'] === 'Marketing Director' ? 'selected' : ''; ?>>Marketing Director</option>
-                                <option value="Supervisor" <?php echo $employee['position'] === 'Supervisor' ? 'selected' : ''; ?>>Supervisor</option>
-                                <option value="Laborer" <?php echo $employee['position'] === 'Laborer' ? 'selected' : ''; ?>>Laborer</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_salary<?php echo $employee['id']; ?>" class="form-label">Salary</label>
-                            <input type="number" class="form-control" id="edit_salary<?php echo $employee['id']; ?>" name="salary" step="0.01" value="<?php echo $employee['salary']; ?>" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_employment_type<?php echo $employee['id']; ?>" class="form-label">Employment Type</label>
-                            <select class="form-select" id="edit_employment_type<?php echo $employee['id']; ?>" name="employment_type" required>
-                                <option value="Fulltime" <?php echo $employee['employment_type'] === 'Fulltime' ? 'selected' : ''; ?>>Fulltime</option>
-                                <option value="By-Day" <?php echo $employee['employment_type'] === 'By-Day' ? 'selected' : ''; ?>>By-Day</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_phone<?php echo $employee['id']; ?>" class="form-label">Phone</label>
-                            <input type="text" class="form-control" id="edit_phone<?php echo $employee['id']; ?>" name="phone" value="<?php echo $employee['phone']; ?>" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_email<?php echo $employee['id']; ?>" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="edit_email<?php echo $employee['id']; ?>" name="email" value="<?php echo $employee['email']; ?>" required>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="edit_address<?php echo $employee['id']; ?>" class="form-label">Address</label>
-                        <textarea class="form-control" id="edit_address<?php echo $employee['id']; ?>" name="address" rows="2" required><?php echo $employee['address']; ?></textarea>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_emergency_contact<?php echo $employee['id']; ?>" class="form-label">Emergency Contact</label>
-                            <input type="text" class="form-control" id="edit_emergency_contact<?php echo $employee['id']; ?>" name="emergency_contact" value="<?php echo $employee['emergency_contact']; ?>" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_status<?php echo $employee['id']; ?>" class="form-label">Status</label>
-                            <select class="form-select" id="edit_status<?php echo $employee['id']; ?>" name="status" required>
-                                <option value="Active" <?php echo $employee['status'] === 'Active' ? 'selected' : ''; ?>>Active</option>
-                                <option value="Suspended" <?php echo $employee['status'] === 'Suspended' ? 'selected' : ''; ?>>Suspended</option>
-                                <option value="Terminated" <?php echo $employee['status'] === 'Terminated' ? 'selected' : ''; ?>>Terminated</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="edit_photo<?php echo $employee['id']; ?>" class="form-label">Employee Photo</label>
-                        <?php if ($employee['photo']): ?>
-                            <div class="mb-2">
-                                <img src="../uploads/employees/<?php echo $employee['photo']; ?>" width="100" class="img-thumbnail">
-                            </div>
-                        <?php endif; ?>
-                        <input type="file" class="form-control" id="edit_photo<?php echo $employee['id']; ?>" name="photo" accept="image/jpeg, image/png">
-                        <small class="form-text text-muted">Leave empty to keep current photo</small>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" name="update_employee" class="btn btn-primary">Update Employee</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Delete Employee Modal -->
-<div class="modal fade" id="deleteEmployeeModal<?php echo $employee['id']; ?>" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirm Delete</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p>Are you sure you want to delete <strong><?php echo $employee['first_name'] . ' ' . $employee['last_name']; ?></strong>?</p>
-                <p class="text-danger"><strong>Warning:</strong> This action cannot be undone and will also delete all associated payroll records and letters.</p>
-            </div>
-            <div class="modal-footer">
-                <form action="../admin/payroll.php" method="post">
-                    <input type="hidden" name="delete_id" value="<?php echo $employee['id']; ?>">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" name="delete_employee" class="btn btn-danger">Delete Employee</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-<?php endforeach; ?>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // For the Add Employee button
-    const addEmployeeBtn = document.querySelector('[data-bs-target="#addEmployeeModal"]');
-    if (addEmployeeBtn) {
-        addEmployeeBtn.addEventListener('click', function() {
-            const myModal = new bootstrap.Modal(document.getElementById('addEmployeeModal'));
-            myModal.show();
-        });
+// Handle form submissions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Process payroll for an employee
+    if (isset($_POST['process_payroll'])) {
+        $employee_id = $_POST['employee_id'];
+        $payment_date = $_POST['payment_date'];
+        $notes = $_POST['notes'] ?? '';
+        
+        $payroll_id = processPayroll($conn, $employee_id, $payment_date, $notes);
+        
+        if ($payroll_id) {
+            $_SESSION['success_message'] = "Payroll processed successfully.";
+            
+            // Generate PDF if requested
+            if (isset($_POST['generate_pdf']) && $_POST['generate_pdf'] == 1) {
+                generatePayslip($conn, $payroll_id);
+                // The function above will redirect, so this code won't be reached
+            }
+            
+            header('Location: payroll.php');
+            exit;
+        } else {
+            $_SESSION['error_message'] = "Failed to process payroll.";
+            header('Location: payroll.php');
+            exit;
+        }
     }
-});
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize DataTables
-    new DataTable('#employeesTable', {
-        responsive: true,
-        order: [[2, 'asc']], // Sort by name
-        lengthMenu: [10, 25, 50, 100],
-        pageLength: 10
-    });
-});
-</script>
+    // Generate automated payroll for all full-time employees
+    if (isset($_POST['generate_automated_payroll'])) {
+        $payment_date = $_POST['automated_payment_date'];
+        $processed_count = generateAutomatedPayroll($conn, $payment_date);
+        
+        if ($processed_count > 0) {
+            $_SESSION['success_message'] = "Automated payroll generated for {$processed_count} employees.";
+        } else {
+            $_SESSION['error_message'] = "No payroll records were generated.";
+        }
+        
+        header('Location: payroll.php');
+        exit;
+    }
+    
+    // Add deduction
+    if (isset($_POST['add_deduction'])) {
+        $employee_id = $_POST['employee_id'];
+        $description = $_POST['description'];
+        $amount = $_POST['amount'];
+        $date = $_POST['deduction_date'];
+        
+        if (addDeduction($conn, $employee_id, $description, $amount, $date)) {
+            $_SESSION['success_message'] = "Deduction added successfully.";
+        } else {
+            $_SESSION['error_message'] = "Failed to add deduction.";
+        }
+        
+        header('Location: payroll.php?action=deductions&employee_id=' . $employee_id);
+        exit;
+    }
+    
+    // Add addition/bonus
+    if (isset($_POST['add_addition'])) {
+        $employee_id = $_POST['employee_id'];
+        $description = $_POST['description'];
+        $amount = $_POST['amount'];
+        $date = $_POST['addition_date'];
+        
+        if (addAddition($conn, $employee_id, $description, $amount, $date)) {
+            $_SESSION['success_message'] = "Addition/bonus added successfully.";
+        } else {
+            $_SESSION['error_message'] = "Failed to add addition/bonus.";
+        }
+        
+        header('Location: payroll.php?action=additions&employee_id=' . $employee_id);
+        exit;
+    }
+}
 
-<?php include '../views/footer.php'; ?>
 
+
+// Get action from URL
+// Get action from URL
+$action = $_GET['action'] ?? 'list';
+$employee_id = $_GET['employee_id'] ?? null;
+$payroll_id = $_GET['payroll_id'] ?? null;
+
+// Handle the generate_pdf action
+if ($action === 'generate_pdf' && $payroll_id) {
+    generatePayslip($conn, $payroll_id);
+    // The function above will redirect, so this code won't be reached
+}
+
+// Flash messages
+// Get all active employees
+$sql = "SELECT id, first_name, last_name, position, employment_type FROM employees WHERE status = 'Active' ORDER BY last_name, first_name";
+$employees_result = $conn->query($sql);
+$employees = $employees_result->fetch_all(MYSQLI_ASSOC);
+
+// Flash messages
+$success_message = $_SESSION['success_message'] ?? null;
+$error_message = $_SESSION['error_message'] ?? null;
+unset($_SESSION['success_message'], $_SESSION['error_message']);
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payroll Management</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/payroll_dashboard.css">
+    <style>
+        .card {
+            margin-bottom: 20px;
+        }
+        .actions-column {
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+  <!-- Navbar -->
+<nav class="navbar navbar-dark">
+    <div class="container-fluid">
+        <!-- Logo and Brand on the left -->
+        <span class="navbar-brand d-flex align-items-center">
+            <div class="logo-container-nav me-2">
+                <img src="../assets/logo2.JPG" alt="Farm Logo" class="logo-nav">
+            </div>
+            Jubert Farms Finance 
+        </span>
+        
+        <!-- Main Navigation Links - Centered -->
+        <div class="nav-links-center">
+            <a href="../admin/payroll_dashboard.php" class="nav-btn"><i class="fas fa-chart-line"></i> Dashboard</a>
+
+    
+            <a href="../admin/payroll.php" class="nav-btn"><i class="fas fa-dollar-sign"></i> Payroll</a>
+            <a href="../admin/employee_management.php" class="nav-btn"><i class="fas fa-dollar-sign"></i> employee management</a>
+        </div>
+        
+        <!-- User Info and Logout on the right -->
+        <div>
+            <a href="../logout.php" class="btn btn-light btn-sm"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+    </div>
+</nav>
+    
+    <div class="container mt-4">
+        <?php if ($success_message): ?>
+            <div class="alert alert-success"><?php echo $success_message; ?></div>
+        <?php endif; ?>
+        
+        <?php if ($error_message): ?>
+            <div class="alert alert-danger"><?php echo $error_message; ?></div>
+        <?php endif; ?>
+        
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h1><i class="fas fa-money-check-alt"></i> Payroll Management</h1>
+            </div>
+            <div class="col-md-6 text-right">
+                <div class="btn-group">
+                    <a href="payroll.php" class="btn btn-primary"><i class="fas fa-list"></i> Payroll List</a>
+                    <button type="button" class="btn btn-success" data-toggle="modal" data-target="#automatedPayrollModal">
+                        <i class="fas fa-sync-alt"></i> Run Automated Payroll
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <?php if ($action === 'list'): ?>
+            <!-- Payroll List View -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5><i class="fas fa-list"></i> Recent Payroll Records</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Employee</th>
+                                <th>Amount</th>
+                                <th>Payment Date</th>
+                                <th class="actions-column">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php
+// This code goes in your payroll view where you display the payroll records
+$sql = "SELECT p.id, p.amount, p.payment_date, e.first_name, e.last_name 
+        FROM payroll p 
+        JOIN employees e ON p.employee_id = e.id 
+        ORDER BY p.payment_date DESC LIMIT 20";
+$result = $conn->query($sql);
+
+if ($result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        echo "<tr>";
+        echo "<td>{$row['id']}</td>";
+        echo "<td>{$row['first_name']} {$row['last_name']}</td>";
+        echo "<td>$" . number_format($row['amount'], 2) . "</td>";
+        echo "<td>" . date('M d, Y', strtotime($row['payment_date'])) . "</td>";
+        echo "<td>";
+        echo "<a href='payroll.php?action=view&payroll_id={$row['id']}' class='btn btn-sm btn-info mr-1'><i class='fas fa-eye'></i></a>";
+        // Updated link to view the PDF directly
+        echo "<a href='../admin/view_payslip.php?payroll_id={$row['id']}' target='_blank' class='btn btn-sm btn-secondary mr-1'><i class='fas fa-file-pdf'></i></a>";
+        echo "</td>";
+        echo "</tr>";
+    }
+} else {
+    echo "<tr><td colspan='5' class='text-center'>No payroll records found</td></tr>";
+}
+?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5><i class="fas fa-user-plus"></i> Process Individual Payroll</h5>
+                </div>
+                <div class="card-body">
+                    <form action="payroll.php" method="post">
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                <label for="employee_id">Select Employee</label>
+                                <select name="employee_id" id="employee_id" class="form-control" required>
+                                    <option value="">-- Select Employee --</option>
+                                    <?php foreach ($employees as $employee): ?>
+                                        <option value="<?php echo $employee['id']; ?>">
+                                            <?php echo $employee['first_name'] . ' ' . $employee['last_name'] . ' (' . $employee['position'] . ')'; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label for="payment_date">Payment Date</label>
+                                <input type="date" name="payment_date" id="payment_date" class="form-control" value="<?php echo date('Y-m-d'); ?>" required>
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label for="notes">Notes (Optional)</label>
+                                <input type="text" name="notes" id="notes" class="form-control">
+                            </div>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input type="checkbox" name="generate_pdf" id="generate_pdf" value="1" class="form-check-input">
+                            <label for="generate_pdf" class="form-check-label">Generate PDF Payslip</label>
+                        </div>
+                        <button type="submit" name="process_payroll" class="btn btn-primary">Process Payroll</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h5><i class="fas fa-minus-circle"></i> Manage Deductions</h5>
+                        </div>
+                        <div class="card-body">
+                            <form action="payroll.php" method="get">
+                                <input type="hidden" name="action" value="deductions">
+                                <div class="form-group">
+                                    <label for="employee_id_deductions">Select Employee</label>
+                                    <select name="employee_id" id="employee_id_deductions" class="form-control" required>
+                                        <option value="">-- Select Employee --</option>
+                                        <?php foreach ($employees as $employee): ?>
+                                            <option value="<?php echo $employee['id']; ?>">
+                                                <?php echo $employee['first_name'] . ' ' . $employee['last_name']; ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-info">View/Manage Deductions</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-warning text-dark">
+                            <h5><i class="fas fa-plus-circle"></i> Manage Additions/Bonuses</h5>
+                        </div>
+                        <div class="card-body">
+                            <form action="payroll.php" method="get">
+                                <input type="hidden" name="action" value="additions">
+                                <div class="form-group">
+                                    <label for="employee_id_additions">Select Employee</label>
+                                    <select name="employee_id" id="employee_id_additions" class="form-control" required>
+                                        <option value="">-- Select Employee --</option>
+                                        <?php foreach ($employees as $employee): ?>
+                                            <option value="<?php echo $employee['id']; ?>">
+                                                <?php echo $employee['first_name'] . ' ' . $employee['last_name']; ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-warning">View/Manage Additions</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        <?php elseif ($action === 'deductions' && $employee_id): ?>
+            <!-- Deductions Management View -->
+            <?php 
+            $employee = getEmployeeDetails($conn, $employee_id);
+            $deductions = getDeductions($conn, $employee_id);
+            ?>
+            
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5><i class="fas fa-minus-circle"></i> Deductions for <?php echo $employee['first_name'] . ' ' . $employee['last_name']; ?></h5>
+                </div>
+                <div class="card-body">
+                    <form action="payroll.php" method="post" class="mb-4">
+                        <input type="hidden" name="employee_id" value="<?php echo $employee_id; ?>">
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                <label for="description">Description</label>
+                                <input type="text" name="description" id="description" class="form-control" required placeholder="e.g., Tax, Insurance, Loan">
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label for="amount">Amount ($)</label>
+                                <input type="number" name="amount" id="amount" class="form-control" min="0.01" step="0.01" required>
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label for="deduction_date">Deduction Date</label>
+                                <input type="date" name="deduction_date" id="deduction_date" class="form-control" value="<?php echo date('Y-m-d'); ?>" required>
+                            </div>
+                        </div>
+                        <button type="submit" name="add_deduction" class="btn btn-primary">Add Deduction</button>
+                        <a href="payroll.php" class="btn btn-secondary">Back to Payroll</a>
+                    </form>
+                    
+                    <h6>Current Deductions</h6>
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th>Date</th>
+                                <th>Applied to Payroll</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (count($deductions) > 0): ?>
+                                <?php foreach ($deductions as $deduction): ?>
+                                    <tr>
+                                        <td><?php echo $deduction['id']; ?></td>
+                                        <td><?php echo htmlspecialchars($deduction['description']); ?></td>
+                                        <td>$<?php echo number_format($deduction['amount'], 2); ?></td>
+                                        <td><?php echo date('M d, Y', strtotime($deduction['deduction_date'])); ?></td>
+                                        <td>
+                                            <?php if ($deduction['payroll_id']): ?>
+                                                <span class="badge badge-success">Yes - Payroll #<?php echo $deduction['payroll_id']; ?></span>
+                                            <?php else: ?>
+                                                <span class="badge badge-warning">Not yet</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php if (!$deduction['payroll_id']): ?>
+                                                <a href="payroll.php?action=delete_deduction&id=<?php echo $deduction['id']; ?>&employee_id=<?php echo $employee_id; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this deduction?');">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            <?php else: ?>
+                                                <button class="btn btn-sm btn-secondary" disabled title="Cannot delete deduction applied to payroll">
+                                                    <i class="fas fa-lock"></i>
+                                                </button>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="6" class="text-center">No deductions found</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+        <?php elseif ($action === 'additions' && $employee_id): ?>
+            <!-- Additions Management View -->
+            <?php 
+            $employee = getEmployeeDetails($conn, $employee_id);
+            $additions = getAdditions($conn, $employee_id);
+            ?>
+            
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5><i class="fas fa-plus-circle"></i> Additions/Bonuses for <?php echo $employee['first_name'] . ' ' . $employee['last_name']; ?></h5>
+                </div>
+                <div class="card-body">
+                    <form action="payroll.php" method="post" class="mb-4">
+                        <input type="hidden" name="employee_id" value="<?php echo $employee_id; ?>">
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                <label for="description">Description</label>
+                                <input type="text" name="description" id="description" class="form-control" required placeholder="e.g., Bonus, Overtime, Allowance">
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label for="amount">Amount ($)</label>
+                                <input type="number" name="amount" id="amount" class="form-control" min="0.01" step="0.01" required>
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label for="addition_date">Addition Date</label>
+                                <input type="date" name="addition_date" id="addition_date" class="form-control" value="<?php echo date('Y-m-d'); ?>" required>
+                            </div>
+                        </div>
+                        <button type="submit" name="add_addition" class="btn btn-primary">Add Addition/Bonus</button>
+                        <a href="payroll.php" class="btn btn-secondary">Back to Payroll</a>
+                    </form>
+                    
+                    <h6>Current Additions/Bonuses</h6>
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th>Date</th>
+                                <th>Applied to Payroll</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (count($additions) > 0): ?>
+                                <?php foreach ($additions as $addition): ?>
+                                    <tr>
+                                        <td><?php echo $addition['id']; ?></td>
+                                        <td><?php echo htmlspecialchars($addition['description']); ?></td>
+                                        <td>$<?php echo number_format($addition['amount'], 2); ?></td>
+                                        <td><?php echo date('M d, Y', strtotime($addition['addition_date'])); ?></td>
+                                        <td>
+                                            <?php if ($addition['payroll_id']): ?>
+                                                <span class="badge badge-success">Yes - Payroll #<?php echo $addition['payroll_id']; ?></span>
+                                            <?php else: ?>
+                                                <span class="badge badge-warning">Not yet</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php if (!$addition['payroll_id']): ?>
+                                                <a href="payroll.php?action=delete_addition&id=<?php echo $addition['id']; ?>&employee_id=<?php echo $employee_id; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this addition?');">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            <?php else: ?>
+                                                <button class="btn btn-sm btn-secondary" disabled title="Cannot delete addition applied to payroll">
+                                                    <i class="fas fa-lock"></i>
+                                                </button>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="6" class="text-center">No additions/bonuses found</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+        <?php elseif ($action === 'view' && $payroll_id): ?>
+            <!-- View Payroll Details -->
+            <?php 
+            $payroll = getPayrollRecord($conn, $payroll_id);
+            
+            if (!$payroll) {
+                echo '<div class="alert alert-danger">Payroll record not found.</div>';
+                echo '<a href="payroll.php" class="btn btn-primary">Back to Payroll</a>';
+            } else {
+                // Get deductions and additions for this payroll
+                $sql = "SELECT * FROM payroll_deductions WHERE payroll_id = ?";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("i", $payroll_id);
+                $stmt->execute();
+                $deductions_result = $stmt->get_result();
+                $deductions = $deductions_result->fetch_all(MYSQLI_ASSOC);
+                
+                $sql = "SELECT * FROM payroll_additions WHERE payroll_id = ?";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("i", $payroll_id);
+                $stmt->execute();
+                $additions_result = $stmt->get_result();
+                $additions = $additions_result->fetch_all(MYSQLI_ASSOC);
+            ?>
+            
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5><i class="fas fa-file-invoice-dollar"></i> Payroll Details #<?php echo $payroll_id; ?></h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Employee Information</h6>
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th width="40%">Name</th>
+                                    <td><?php echo $payroll['first_name'] . ' ' . $payroll['last_name']; ?></td>
+                                </tr>
+                                <tr>
+                                    <th>Position</th>
+                                    <td><?php echo $payroll['position']; ?></td>
+                                </tr>
+                                <tr>
+                                    <th>Employment Type</th>
+                                    <td><?php echo $payroll['employment_type']; ?></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Payroll Information</h6>
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th width="40%">Payment Date</th>
+                                    <td><?php echo date('F d, Y', strtotime($payroll['payment_date'])); ?></td>
+                                </tr>
+                                <tr>
+                                    <th>Base Salary</th>
+                                    <td>$<?php echo number_format($payroll['base_salary'], 2); ?></td>
+                                </tr>
+                                <tr>
+                                    <th>Final Amount</th>
+                                    <td class="font-weight-bold text-success">$<?php echo number_format($payroll['amount'], 2); ?></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <h6>Deductions</h6>
+                            <?php if (count($deductions) > 0): ?>
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Description</th>
+                                            <th>Amount</th>
+                                            <th>Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($deductions as $deduction): ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars($deduction['description']); ?></td>
+                                                <td>$<?php echo number_format($deduction['amount'], 2); ?></td>
+                                                <td><?php echo date('M d, Y', strtotime($deduction['deduction_date'])); ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                        <tr class="table-secondary">
+                                            <th>Total Deductions</th>
+                                            <th>$<?php echo number_format($payroll['total_deductions'], 2); ?></th>
+                                            <td></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            <?php else: ?>
+                                <p class="text-muted">No deductions</p>
+                            <?php endif; ?>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Additions/Bonuses</h6>
+                            <?php if (count($additions) > 0): ?>
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Description</th>
+                                            <th>Amount</th>
+                                            <th>Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($additions as $addition): ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars($addition['description']); ?></td>
+                                                <td>$<?php echo number_format($addition['amount'], 2); ?></td>
+                                                <td><?php echo date('M d, Y', strtotime($addition['addition_date'])); ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                        <tr class="table-secondary">
+                                            <th>Total Additions</th>
+                                            <th>$<?php echo number_format($payroll['total_additions'], 2); ?></th>
+                                            <td></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            <?php else: ?>
+                                <p class="text-muted">No additions/bonuses</p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    
+                    <?php if (!empty($payroll['notes'])): ?>
+                        <div class="mt-4">
+                            <h6>Notes</h6>
+                            <p><?php echo nl2br(htmlspecialchars($payroll['notes'])); ?></p>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <div class="mt-4">
+                        <a href="payroll.php" class="btn btn-secondary">Back to Payroll</a>
+                        <a href="payroll.php?action=generate_pdf&payroll_id=<?php echo $payroll_id; ?>" class="btn btn-primary">
+                            <i class="fas fa-file-pdf"></i> Generate PDF Payslip
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <?php } ?>
+            
+
+<?php elseif ($action === 'generate_pdf' && $payroll_id): ?>
+    <!-- Generate PDF View -->
+    <?php 
+    // Generate a unique filename
+    $payroll = getPayrollRecord($conn, $payroll_id);
+    if ($payroll) {
+        $filename = 'payslip_' . $payroll_id . '_' . str_replace(' ', '_', $payroll['first_name'] . '_' . $payroll['last_name']) . '.pdf';
+        $filepath = 'payslips/' . $filename;
+        
+        // Create directory for payslips if it doesn't exist
+        if (!file_exists('payslips')) {
+            mkdir('payslips', 0755, true);
+        }
+        
+        // Redirect to the payslip generator
+        header("Location: ../payslip_generator.php?payroll_id=$payroll_id&output_path=" . urlencode($filepath));
+        exit;
+    } else {
+        echo '<div class="alert alert-danger">Failed to generate PDF payslip. Employee record not found.</div>';
+        echo '<a href=" payroll.php" class="btn btn-primary">Back to Payroll</a>';
+    }
+    ?>
+            
+        <?php elseif ($action === 'delete_deduction' && isset($_GET['id'])): ?>
+            <!-- Delete Deduction -->
+            <?php 
+            $deduction_id = $_GET['id'];
+            $employee_id = $_GET['employee_id'] ?? null;
+            
+            $sql = "DELETE FROM payroll_deductions WHERE id = ? AND payroll_id IS NULL";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("i", $deduction_id);
+            
+            if ($stmt->execute() && $stmt->affected_rows > 0) {
+                $_SESSION['success_message'] = "Deduction deleted successfully.";
+            } else {
+                $_SESSION['error_message'] = "Failed to delete deduction.";
+            }
+            
+            header('Location: payroll.php?action=deductions&employee_id=' . $employee_id);
+            exit;
+            ?>
+            
+        <?php elseif ($action === 'delete_addition' && isset($_GET['id'])): ?>
+            <!-- Delete Addition -->
+            <?php 
+            $addition_id = $_GET['id'];
+            $employee_id = $_GET['employee_id'] ?? null;
+            
+            $sql = "DELETE FROM payroll_additions WHERE id = ? AND payroll_id IS NULL";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("i", $addition_id);
+            
+            if ($stmt->execute() && $stmt->affected_rows > 0) {
+                $_SESSION['success_message'] = "Addition deleted successfully.";
+            } else {
+                $_SESSION['error_message'] = "Failed to delete addition.";
+            }
+            
+            header('Location: payroll.php?action=additions&employee_id=' . $employee_id);
+            exit;
+            ?>
+            
+        <?php else: ?>
+            <div class="alert alert-danger">Invalid action or missing parameters.</div>
+            <a href=" payroll.php" class="btn btn-primary">Back to Payroll</a>
+        <?php endif; ?>
+    </div>
+    
+    <!-- Automated Payroll Modal -->
+    <div class="modal fade" id="automatedPayrollModal" tabindex="-1" role="dialog" aria-labelledby="automatedPayrollModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="automatedPayrollModalLabel">Run Automated Payroll</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form action="payroll.php" method="post">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> This will generate payroll records for all active full-time employees.
+                        </div>
+                        <div class="form-group">
+                            <label for="automated_payment_date">Payment Date</label>
+                            <input type="date" name="automated_payment_date" id="automated_payment_date" class="form-control" value="<?php echo date('Y-m-d'); ?>" required>
+                        </div>
+                        <button type="submit" name="generate_automated_payroll" class="btn btn-success">Generate Payroll</button>
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
 </html>

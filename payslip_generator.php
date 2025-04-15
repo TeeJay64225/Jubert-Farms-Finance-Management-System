@@ -1,0 +1,417 @@
+<?php
+require('fpdf186/fpdf.php');
+require('config/db.php');
+
+// Check if payroll_id is provided
+if (!isset($_GET['payroll_id'])) {
+    die("Error: No payroll ID provided");
+}
+
+$payroll_id = $_GET['payroll_id'];
+
+
+
+
+// Get payroll and employee details
+$sql = "SELECT p.*, e.first_name, e.last_name, e.position, e.employment_type, e.phone, e.email 
+        FROM payroll p 
+        JOIN employees e ON p.employee_id = e.id 
+        WHERE p.id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $payroll_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$payroll = $result->fetch_assoc();
+
+if (!$payroll) {
+    die("Error: Payroll record not found");
+}
+
+// Get deductions for this payroll
+$sql = "SELECT * FROM payroll_deductions WHERE payroll_id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $payroll_id);
+$stmt->execute();
+$deductions_result = $stmt->get_result();
+$deductions = $deductions_result->fetch_all(MYSQLI_ASSOC);
+
+// Get additions for this payroll
+$sql = "SELECT * FROM payroll_additions WHERE payroll_id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $payroll_id);
+$stmt->execute();
+$additions_result = $stmt->get_result();
+$additions = $additions_result->fetch_all(MYSQLI_ASSOC);
+
+
+
+// Extend FPDF to create custom elements
+class PDF extends FPDF {
+    protected $extgstates = array();
+    
+    function RoundedRect($x, $y, $w, $h, $r, $style = '', $angle = 0) {
+        $k = $this->k;
+        $hp = $this->h;
+        
+        if ($style == 'F') {
+            $op = 'f';
+        } elseif ($style == 'FD' || $style == 'DF') {
+            $op = 'B';
+        } else {
+            $op = 'S';
+        }
+        
+        // If angle is not 0, we need to rotate
+        if ($angle != 0) {
+            $this->_out('q');
+            $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F cm', 
+                cos($angle * M_PI / 180), sin($angle * M_PI / 180),
+                -sin($angle * M_PI / 180), cos($angle * M_PI / 180),
+                $x * $k, ($hp - $y) * $k));
+            $x = 0;
+            $y = 0;
+        }
+        
+        $MyArc = 4/3 * (sqrt(2) - 1);
+        
+        $this->_out(sprintf('%.2F %.2F m', ($x + $r) * $k, ($hp - $y) * $k));
+        $xc = $x + $w - $r;
+        $yc = $y + $r;
+        $this->_out(sprintf('%.2F %.2F l', $xc * $k, ($hp - $y) * $k));
+        
+        $this->_Arc($xc + $r * $MyArc, $y, $xc + $r, $y + $r * $MyArc, $xc + $r, $yc);
+        
+        $xc = $x + $w - $r;
+        $yc = $y + $h - $r;
+        $this->_out(sprintf('%.2F %.2F l', ($x + $w) * $k, ($hp - $yc) * $k));
+        
+        $this->_Arc($xc + $r, $yc + $r * $MyArc, $xc + $r * $MyArc, $yc + $r, $xc, $yc + $r);
+        
+        $xc = $x + $r;
+        $yc = $y + $h - $r;
+        $this->_out(sprintf('%.2F %.2F l', $xc * $k, ($hp - ($y + $h)) * $k));
+        
+        $this->_Arc($xc - $r * $MyArc, $yc + $r, $xc - $r, $yc + $r * $MyArc, $xc - $r, $yc);
+        
+        $xc = $x + $r;
+        $yc = $y + $r;
+        $this->_out(sprintf('%.2F %.2F l', $x * $k, ($hp - $yc) * $k));
+        
+        $this->_Arc($xc - $r, $yc - $r * $MyArc, $xc - $r * $MyArc, $yc - $r, $xc, $yc - $r);
+        
+        $this->_out($op);
+        
+        if ($angle != 0) {
+            $this->_out('Q');
+        }
+    }
+
+    function _Arc($x1, $y1, $x2, $y2, $x3, $y3) {
+        $h = $this->h;
+        $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c ',
+            $x1 * $this->k, ($h - $y1) * $this->k,
+            $x2 * $this->k, ($h - $y2) * $this->k,
+            $x3 * $this->k, ($h - $y3) * $this->k));
+    }
+    
+    function Circle($x, $y, $r, $style = 'F') {
+        $this->Ellipse($x, $y, $r, $r, $style);
+    }
+    
+    function Ellipse($x, $y, $rx, $ry, $style = 'D') {
+        if ($style == 'F')
+            $op = 'f';
+        elseif ($style == 'FD' || $style == 'DF')
+            $op = 'B';
+        else
+            $op = 'S';
+            
+        $lx = 4/3 * (M_SQRT2 - 1) * $rx;
+        $ly = 4/3 * (M_SQRT2 - 1) * $ry;
+        
+        $k = $this->k;
+        $h = $this->h;
+        
+        $this->_out(sprintf('%.2F %.2F m %.2F %.2F %.2F %.2F %.2F %.2F c',
+            ($x + $rx) * $k, ($h - $y) * $k,
+            ($x + $rx) * $k, ($h - ($y - $ly)) * $k,
+            ($x + $lx) * $k, ($h - ($y - $ry)) * $k,
+            $x * $k, ($h - ($y - $ry)) * $k));
+            
+        $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c',
+            ($x - $lx) * $k, ($h - ($y - $ry)) * $k,
+            ($x - $rx) * $k, ($h - ($y - $ly)) * $k,
+            ($x - $rx) * $k, ($h - $y) * $k));
+            
+        $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c',
+            ($x - $rx) * $k, ($h - ($y + $ly)) * $k,
+            ($x - $lx) * $k, ($h - ($y + $ry)) * $k,
+            $x * $k, ($h - ($y + $ry)) * $k));
+            
+        $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c %s',
+            ($x + $lx) * $k, ($h - ($y + $ry)) * $k,
+            ($x + $rx) * $k, ($h - ($y + $ly)) * $k,
+            ($x + $rx) * $k, ($h - $y) * $k,
+            $op));
+    }
+    
+    // Add transparency/alpha channel support
+    function SetAlpha($alpha, $bm = 'Normal') {
+        // set alpha for stroking (CA) and non-stroking (ca) operations
+        $gs = $this->AddExtGState(array('ca' => $alpha, 'CA' => $alpha, 'BM' => '/' . $bm));
+        $this->SetExtGState($gs);
+    }
+    
+    function AddExtGState($parms) {
+        $n = count($this->extgstates) + 1;
+        $this->extgstates[$n]['parms'] = $parms;
+        return $n;
+    }
+    
+    function SetExtGState($gs) {
+        $this->_out(sprintf('/GS%d gs', $gs));
+    }
+    
+    function _enddoc() {
+        if (!empty($this->extgstates) && $this->PDFVersion < '1.4') {
+            $this->PDFVersion = '1.4';
+        }
+        parent::_enddoc();
+    }
+    
+    function _putextgstates() {
+        for ($i = 1; $i <= count($this->extgstates); $i++) {
+            $this->_newobj();
+            $this->extgstates[$i]['n'] = $this->n;
+            $this->_put('<</Type /ExtGState');
+            foreach ($this->extgstates[$i]['parms'] as $k => $v) {
+                $this->_put('/' . $k . ' ' . $v);
+            }
+            $this->_put('>>');
+            $this->_put('endobj');
+        }
+    }
+    
+    function _putresourcedict() {
+        parent::_putresourcedict();
+        $this->_put('/ExtGState <<');
+        foreach ($this->extgstates as $k => $extgstate) {
+            $this->_put('/GS' . $k . ' ' . $extgstate['n'] . ' 0 R');
+        }
+        $this->_put('>>');
+    }
+    
+    function _putresources() {
+        $this->_putextgstates();
+        parent::_putresources();
+    }
+    
+
+    
+    
+    function Footer() {
+        // Position footer exactly at bottom of page
+        $this->SetY(-20);
+        
+        // Brighter green background for footer
+        $this->SetFillColor(1, 120, 65);
+        $this->RoundedRect(10, $this->GetY(), $this->GetPageWidth() - 20, 10, 5, 'F');
+        
+        // Set text color to white for footer text
+        $this->SetTextColor(255, 255, 255);
+        $this->SetFont('Arial', '', 12);
+        
+        // Footer text with contact info and icons
+        $footerY = $this->GetY() + 3.5;
+        
+        // Reduce the gap between icons and text (adjust these values as needed)
+        $iconTextGap = 4; 
+        
+        // Website with icon
+        $webIconX = 15;
+        $this->Image('icons/web.png', $webIconX, $footerY - 1, 4, 4);
+        $this->SetXY($webIconX + $iconTextGap, $footerY);
+        $this->Cell(50, 4, 'jubertfarms.com', 0, 0, 'L');
+        
+        // Phone with icon
+        $phoneIconX = 75;
+        $this->Image('icons/phone.png', $phoneIconX, $footerY - 1, 4, 4);
+        $this->SetXY($phoneIconX + $iconTextGap, $footerY);
+        $this->Cell(60, 4, '+233 2570 44814', 0, 0, 'C');
+        
+        // Email with icon
+        $emailIconX = $this->GetPageWidth() - 65;
+        $this->Image('icons/email.png', $emailIconX, $footerY - 1, 4, 4);
+        $this->SetXY($emailIconX + $iconTextGap, $footerY);
+        $this->Cell(50, 4, 'info@jubertfarms.com', 0, 0, 'R');
+    }
+}
+
+// Create and initialize PDF with smaller margins to maximize content area
+$pdf = new PDF();
+$pdf->SetMargins(10, 10, 10);
+$pdf->AddPage();
+$pdf->AliasNbPages();
+$pdf->SetAutoPageBreak(true, 15); // Reduced bottom margin
+
+// Define BRIGHTER colors
+$brightGreen = [76, 175, 80]; // Much brighter green for main elements
+$lightGreen = [129, 199, 132]; // Even lighter green for sections
+$backgroundColor = [255, 255, 255]; // White background
+
+// Set main background color to WHITE instead of dark green
+$pdf->SetFillColor(5, 46, 27);
+$pdf->Rect(0, 0, $pdf->GetPageWidth(), $pdf->GetPageHeight(), 'F');
+
+// Create modern header section with company logo - COMPACT VERSION
+$pdf->SetAlpha(0.9); // Increased opacity for better visibility
+$pdf->Circle(45, 30, 8, 'D'); // Circle for logo placement
+
+// Add company logo image
+$pdf->Image('assets/logo.png', 30, 15, 30, 30);
+
+// Add "RECEIPT" heading with smaller font - using bright green now
+$pdf->SetFont('Helvetica', 'B', 45);
+$pdf->SetTextColor(255, 255, 255);
+$pdf->SetXY(90, 20);
+$pdf->Cell(90, 20, 'PAYSLIP', 0, 1, 'R');
+
+// Create receipt details box - with brighter background
+$pdf->SetFillColor(1, 120, 65);
+$pdf->RoundedRect(10, 50, $pdf->GetPageWidth() - 20, 20, 5, 'F');
+
+// Receipt details text - COMPACT
+$pdf->SetFont('Arial', 'B', 15);
+$pdf->SetTextColor(255, 255, 255); // White text for contrast
+$pdf->SetXY(15, 55);
+$pdf->Cell(80, 6, 'Payslip No: ', 0, 0);
+
+// Move the date further to the right by increasing the X value
+$pdf->SetXY($pdf->GetPageWidth() - 65, 55);
+$pdf->Cell(80, 6, 'Date: '.$payroll['payment_date'], 0, 0);
+
+// Create client and payment info section - COMPACT VERSION
+$pdf->SetY(75);
+$pdf->SetFillColor(5, 46, 27); // Lighter green
+
+// Client info box (left side) - REDUCED HEIGHT
+$pdf->RoundedRect(10, $pdf->GetY(), ($pdf->GetPageWidth() - 30)/2, 35, 5, 'F');
+$pdf->SetFont('Arial', 'B', 15);
+$pdf->SetTextColor(255, 255, 255); // White text for contrast
+$pdf->SetXY(20, $pdf->GetY() + 4);
+$pdf->Cell(40, 6, 'Employee', 0, 1);
+
+// Double space after CLIENT
+$pdf->Ln(2); 
+
+// Output client name
+$pdf->SetFont('Arial', '', 12);
+$pdf->SetX(20);
+$pdf->Cell(($pdf->GetPageWidth() - 30)/2 - 10, 5, $payroll['first_name'] . ' ' . $payroll['last_name'], 0, 1);
+
+// Double space between name and address
+$pdf->Ln(2); 
+
+// Output address
+$pdf->SetX(20);
+
+
+// Payment info box (right side) - REDUCED HEIGHT and MOVED FURTHER RIGHT
+$pdf->SetY(75); // Match Y of client box
+$pdf->SetFillColor(5, 46, 27);
+
+// Adjust position more to the right
+$pdf->RoundedRect($pdf->GetPageWidth()/2 + 20, $pdf->GetY(), ($pdf->GetPageWidth() - 60)/2, 35, 5, 'F');
+
+$pdf->SetFont('Arial', 'B', 15);
+// Adjust the X position for the "PAYMENT DETAILS" text
+$pdf->SetXY($pdf->GetPageWidth()/2 + 30, $pdf->GetY() + 4);
+$pdf->Cell(40, 6, 'Employement Details', 0, 1);
+
+// Double space after PAYMENT DETAILS
+$pdf->Ln(2); 
+
+$pdf->SetFont('Arial', '', 12);
+// Adjust the X position for the payment details text
+$pdf->SetX($pdf->GetPageWidth()/2 + 30);
+$pdf->SetX($pdf->GetPageWidth()/2 + 30);
+$pdf->Cell(($pdf->GetPageWidth() - 60)/2 - 10, 5, "Position: ".$payroll['position'], 0, 1);
+
+// Payment summary section - styled similarly to invoice items
+$pdf->SetY(115);
+
+// Table header
+$pdf->SetFillColor(1, 120, 65);
+$pdf->RoundedRect(10, $pdf->GetY(), $pdf->GetPageWidth() - 20, 12, 5, 'F');
+$pdf->SetFont('Arial', 'B', 15);
+$pdf->SetTextColor(255, 255, 255); // White text for header
+
+// Payment summary header
+$pdf->SetXY(15, $pdf->GetY() + 3);
+$pdf->Cell(80, 6, 'PAYMENT SUMMARY', 0, 0);
+
+// Payment row - with brighter color
+$pdf->SetY(130);
+$pdf->SetFillColor(220, 237, 200); // Very light green
+$pdf->SetTextColor(50, 50, 50);    // Dark text for contrast
+$pdf->RoundedRect(10, $pdf->GetY(), $pdf->GetPageWidth() - 20, 35, 5, 'F');
+
+
+
+$pdf->SetX(15);
+$pdf->Cell(100, 6, 'Employment Status', 0, 0);
+$pdf->SetX($pdf->GetPageWidth() - 50);
+$pdf->Cell(35, 6, '' .$payroll['employment_type'], 0, 1, 'R');
+
+$total_deductions = 0;
+foreach ($deductions as $deduction) {
+    $total_deductions += $deduction['amount'];
+}
+
+// Payment details
+$pdf->SetFont('Arial', 'B', 12);
+$pdf->SetXY(15, $pdf->GetY() + 5);
+$pdf->Cell(100, 6, ' DEDUCTION:', 0, 0);
+$pdf->SetX($pdf->GetPageWidth() - 50);
+$pdf->Cell(35, 6, 'GHS ' . number_format($total_deductions, 2), 0, 1, 'R');
+
+$total_additions = 0;
+foreach ($additions as $addition) {
+    $total_additions += $addition['amount'];
+}
+
+$pdf->SetX(15);
+$pdf->Cell(100, 6, 'ADDITION:', 0, 0);
+$pdf->SetX($pdf->GetPageWidth() - 50);
+$pdf->Cell(35, 6, 'GHS ' .  number_format($total_additions, 2), 0, 1, 'R');
+
+$pdf->SetX(15);
+$pdf->Cell(100, 6, 'BALANCE:', 0, 0);
+$pdf->SetX($pdf->GetPageWidth() - 50);
+$balance = $payroll['base_salary'] - $payroll['base_salary'];
+$pdf->Cell(35, 6, 'GHS ' . $payroll['base_salary'], 0, 1, 'R');
+
+
+
+
+// Calculate positions for notes section
+$y = 175;
+
+// Notes section with lighter background
+$pdf->SetFillColor(5, 46, 27);
+$pdf->RoundedRect(10, $y, $pdf->GetPageWidth() - 20, 40, 5, 'F');
+
+$pdf->SetFont('Arial', 'B', 14);
+$pdf->SetTextColor(255, 255, 255); // White text for contrast
+$pdf->SetXY(15, $y + 3);
+$pdf->Cell(40, 5, 'NOTES:', 0, 1);
+// Double space after NOTES
+$pdf->Ln(2);
+
+$pdf->SetFont('Arial', '', 13);
+$pdf->SetX(15);
+$pdf->MultiCell($pdf->GetPageWidth() - 40, 4, "Thank You For Your Payment. We Appreciate Your Business.\nPlease Keep This Receipt As Proof Of Payment.", 0);
+
+
+
+$pdf->Output();

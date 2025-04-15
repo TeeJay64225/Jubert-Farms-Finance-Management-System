@@ -856,12 +856,15 @@ $profit_margin = $dashboardData['finance']['profit_margin'] ?? 0;
                 <i class="fas fa-money-bill-wave"></i>
             </div>
             <div class="card-body">
-                <div class="metric-value"><?php echo number_format($dashboardData['labor']['monthly_labor_cost'], 2); ?> GHS</div>
-                <div class="metric-label">
-                <span class="text-danger">
-    <?php echo number_format($dashboardData['labor']['unpaid_labor_amount'] ?? 0, 2); ?> GHS unpaid
-</span>
-                </div>
+            <div class="metric-value">
+    <?php echo number_format($dashboardData['labor']['monthly_labor_cost'] ?? 0, 2); ?> GHS
+</div>
+<div class="metric-label">
+    <span class="text-danger">
+        <?php echo number_format($dashboardData['labor']['unpaid_labor_amount'] ?? 0, 2); ?> GHS unpaid
+    </span>
+</div>
+
             </div>
         </div>
     </div>

@@ -1,0 +1,118 @@
+/* Payslip specific styles */
+.payslip-header {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+}
+
+.employee-info {
+    background-color: var(--card-bg);
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+}
+
+.payslip-details table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.payslip-details table th, 
+.payslip-details table td {
+    padding: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.net-pay {
+    background-color: var(--highlight-light);
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 15px;
+    font-weight: bold;
+}
+
+.payslip-footer {
+    border-top: 1px solid var(--border-color);
+    padding-top: 15px;
+    margin-top: 15px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+/* Profile card in dashboard */
+.profile-card {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: var(--card-bg);
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+.profile-card:hover {
+    transform: translateX(5px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.profile-image {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    margin-right: 15px;
+    object-fit: cover;
+}
+
+.status-badge {
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.status-Active {
+    background-color: rgba(40, 167, 69, 0.2);
+    color: #28a745;
+}
+
+.status-Inactive {
+    background-color: rgba(108, 117, 125, 0.2);
+    color: #6c757d;
+}
+
+.status-Terminated {
+    background-color: rgba(220, 53, 69, 0.2);
+    color: #dc3545;
+}
+
+.status-On-Leave {
+    background-color: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+}
+
+/* Print styles */
+@media print {
+    body {
+        background-color: white;
+        color: black;
+    }
+    
+    .no-print {
+        display: none !important;
+    }
+    
+    .container {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .payslip-header, 
+    .employee-info, 
+    .payslip-details, 
+    .net-pay, 
+    .payslip-footer {
+        border-color: #000;
+    }
+}
