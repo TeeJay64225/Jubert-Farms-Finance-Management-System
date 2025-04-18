@@ -11,6 +11,12 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 
 include '../config/db.php';
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
 
 
 // Function to get employee details
@@ -272,7 +278,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $payroll_id = processPayroll($conn, $employee_id, $payment_date, $notes);
         
         if ($payroll_id) {
-            $_SESSION['success_message'] = "Payroll processed successfully.";
+            log_action($conn, $_SESSION['user_id'], "Processed payroll for Employee ID {$employee_id}");
+        
             
             // Generate PDF if requested
             if (isset($_POST['generate_pdf']) && $_POST['generate_pdf'] == 1) {
@@ -295,8 +302,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $processed_count = generateAutomatedPayroll($conn, $payment_date);
         
         if ($processed_count > 0) {
-            $_SESSION['success_message'] = "Automated payroll generated for {$processed_count} employees.";
-        } else {
+            log_action($conn, $_SESSION['user_id'], "Generated automated payroll for {$processed_count} employees on {$payment_date}");
+        }
+         else {
             $_SESSION['error_message'] = "No payroll records were generated.";
         }
         
@@ -312,8 +320,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $date = $_POST['deduction_date'];
         
         if (addDeduction($conn, $employee_id, $description, $amount, $date)) {
-            $_SESSION['success_message'] = "Deduction added successfully.";
-        } else {
+            log_action($conn, $_SESSION['user_id'], "Added deduction for Employee ID {$employee_id}: {$description} - {$amount}");
+        }
+         else {
             $_SESSION['error_message'] = "Failed to add deduction.";
         }
         
@@ -329,8 +338,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $date = $_POST['addition_date'];
         
         if (addAddition($conn, $employee_id, $description, $amount, $date)) {
-            $_SESSION['success_message'] = "Addition/bonus added successfully.";
-        } else {
+            log_action($conn, $_SESSION['user_id'], "Added addition/bonus for Employee ID {$employee_id}: {$description} - {$amount}");
+        }
+         else {
             $_SESSION['error_message'] = "Failed to add addition/bonus.";
         }
         

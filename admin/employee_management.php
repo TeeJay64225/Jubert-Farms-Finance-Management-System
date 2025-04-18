@@ -8,6 +8,12 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 }
 
 include '../config/db.php';
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
 
 // Process form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -100,15 +106,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES ('$first_name', '$last_name', '$dob', '$position', '$salary', '$employment_type', '$phone', '$email', '$address', '$emergency_contact', " . ($photo ? "'$photo'" : "NULL") . ", '$status')";
         
         if (mysqli_query($conn, $sql)) {
-            // Log this action
+            // Log this action using the log_action function
             $user_id = $_SESSION['user_id'];
             $action = "Added new employee: $first_name $last_name";
-            mysqli_query($conn, "INSERT INTO audit_logs (user_id, action) VALUES ('$user_id', '$action')");
+            log_action($conn, $user_id, $action);  // Using the log_action function
             
             $_SESSION['success'] = "Employee added successfully!";
         } else {
             $_SESSION['error'] = "Error adding employee: " . mysqli_error($conn);
         }
+        
         
         header("Location: ../admin/employee_management.php");
         exit();
@@ -217,15 +224,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE id = '$id'";
         
         if (mysqli_query($conn, $sql)) {
-            // Log this action
+            // Log this action using the log_action function
             $user_id = $_SESSION['user_id'];
             $action = "Updated employee: $first_name $last_name (ID: $id)";
-            mysqli_query($conn, "INSERT INTO audit_logs (user_id, action) VALUES ('$user_id', '$action')");
+            log_action($conn, $user_id, $action);  // Using the log_action function
             
             $_SESSION['success'] = "Employee updated successfully!";
         } else {
             $_SESSION['error'] = "Error updating employee: " . mysqli_error($conn);
         }
+        
         
         header("Location: ../admin/employee_management.php");
         exit();
@@ -250,15 +258,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 unlink($target_dir . $employee['photo']);
             }
             
-            // Log this action
+            // Log this action using the log_action function
             $user_id = $_SESSION['user_id'];
             $action = "Deleted employee: " . $employee['first_name'] . " " . $employee['last_name'] . " (ID: $id)";
-            mysqli_query($conn, "INSERT INTO audit_logs (user_id, action) VALUES ('$user_id', '$action')");
+            log_action($conn, $user_id, $action);  // Using the log_action function
             
             $_SESSION['success'] = "Employee deleted successfully!";
         } else {
             $_SESSION['error'] = "Error deleting employee: " . mysqli_error($conn);
         }
+        
         
         header("Location: ../admin/employee_management.php");
         exit();

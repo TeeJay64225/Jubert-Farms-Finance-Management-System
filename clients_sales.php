@@ -6,6 +6,14 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 }
 include 'config/db.php';
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+log_action($conn, $_SESSION['user_id'], "Viewed sales for client ID $client_id");
+
 // Check if client_id is provided in URL
 if (!isset($_GET['client_id']) || empty($_GET['client_id'])) {
     // Redirect back to clients page if no ID provided
@@ -61,9 +69,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_sale'])) {
         
         if ($insertStmt->execute()) {
             $success_message = "Sale added successfully!";
+            log_action($conn, $_SESSION['user_id'], "Added sale for client ID $client_id: $product_name, $$amount on $sale_date");
         } else {
             $errors[] = "Error adding sale: " . $conn->error;
         }
+        
         
         $insertStmt->close();
     }

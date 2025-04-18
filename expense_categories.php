@@ -6,6 +6,17 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 }
 include 'config/db.php';
 
+
+
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+log_action($conn, $_SESSION['user_id'], "Accessed category management page");
+
+
 // Process form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (isset($_POST['action'])) {
@@ -18,8 +29,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     VALUES ('$category_name', '$description')";
             
             if ($conn->query($sql) === TRUE) {
+                log_action($conn, $_SESSION['user_id'], "Added new expense category: $category_name");
                 $message = "Category added successfully!";
-            } else {
+            }
+             else {
                 $error = "Error: " . $conn->error;
             }
         } elseif ($_POST['action'] == 'update') {
@@ -30,10 +43,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             $sql = "UPDATE expense_categories SET category_name='$category_name', description='$description' 
                     WHERE category_id=$category_id";
-
-            if ($conn->query($sql) === TRUE) {
-                $message = "Category updated successfully!";
-            } else {
+if ($conn->query($sql) === TRUE) {
+    log_action($conn, $_SESSION['user_id'], "Updated category ID $category_id to: $category_name");
+    $message = "Category updated successfully!";
+}
+ else {
                 $error = "Error: " . $conn->error;
             }
         }
@@ -55,8 +69,10 @@ if (isset($_GET['delete'])) {
         $sql = "DELETE FROM expense_categories WHERE category_id=$category_id";
         
         if ($conn->query($sql) === TRUE) {
+            log_action($conn, $_SESSION['user_id'], "Deleted expense category ID $category_id");
             $message = "Category deleted successfully!";
-        } else {
+        }
+        else {
             $error = "Error: " . $conn->error;
         }
     }

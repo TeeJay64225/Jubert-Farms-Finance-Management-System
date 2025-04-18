@@ -6,6 +6,14 @@ ini_set('display_errors', 1);
 include 'config/db.php';
 include 'crop/calendar_functions.php';
 
+
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
 // Initialize variables
 $event_id = $event_date = $event_name = $crop_id = $description = '';
 $error_message = $success_message = '';

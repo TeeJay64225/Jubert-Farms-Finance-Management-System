@@ -6,6 +6,14 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 }
 include 'config/db.php';
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+log_action($conn, $_SESSION['user_id'], "Exported filtered asset list");
+
 // Set default filters
 $category_filter = isset($_GET['category']) ? $_GET['category'] : '';
 $condition_filter = isset($_GET['condition']) ? $_GET['condition'] : '';

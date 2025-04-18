@@ -7,6 +7,15 @@ ob_start();
 include 'config/db.php';
 require_once 'views/header.php';
 
+
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
+
 // Fetch labor categories for dropdown
 $category_sql = "SELECT category_id, category_name FROM labor_categories ORDER BY category_name ASC";
 $category_result = mysqli_query($conn, $category_sql);
@@ -32,6 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($stmt->execute()) {
         echo "<div class='alert alert-success'>Labor entry added successfully!</div>";
+        log_action($conn, $_SESSION['user_id'], "Added labor record for {$worker_name} on {$labor_date}.");
+
     } else {
         echo "<div class='alert alert-danger'>Error: " . $stmt->error . "</div>";
     }

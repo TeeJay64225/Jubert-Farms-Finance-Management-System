@@ -1,10 +1,26 @@
 <?php
 session_start();
+
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
     header("Location: views/login.php");
     exit();
 }
-include 'config/db.php';
+
+include 'config/db.php'; // ✅ First include the DB connection
+
+// ✅ Then define the function
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// ✅ Then use it
+if (isset($_SESSION['user_id'])) {
+    log_action($conn, $_SESSION['user_id'], "Accessed expense management page");
+}
+
 
 // Process form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -51,9 +67,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             
             if ($conn->query($sql) === TRUE) {
                 $message = "Expense record added successfully!";
+                log_action($conn, $_SESSION['user_id'], "Added new expense: Reason='$expense_reason', Amount=$amount, Date=$expense_date");
             } else {
                 $error = "Error: " . $conn->error;
-            }
+            }            
         } elseif ($_POST['action'] == 'update') {
             // Update existing expense
             $expense_id = $_POST['expense_id'];
@@ -105,11 +122,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     receipt_file=" . ($receipt_file ? "'$receipt_file'" : "NULL") . " 
                     WHERE expense_id=$expense_id";
 
-            if ($conn->query($sql) === TRUE) {
-                $message = "Expense record updated successfully!";
-            } else {
-                $error = "Error: " . $conn->error;
-            }
+                    if ($conn->query($sql) === TRUE) {
+                        $message = "Expense record updated successfully!";
+                        log_action($conn, $_SESSION['user_id'], "Updated expense ID $expense_id: Reason='$expense_reason', Amount=$amount, Date=$expense_date");
+                    } else {
+                        $error = "Error: " . $conn->error;
+                    }
+                    
         }
     }
 }
@@ -125,14 +144,15 @@ if (isset($_GET['delete'])) {
     $sql = "DELETE FROM expenses WHERE expense_id=$expense_id";
 
     if ($conn->query($sql) === TRUE) {
-        // Delete the file if it exists
         if($file_data['receipt_file'] && file_exists($file_data['receipt_file'])) {
             unlink($file_data['receipt_file']);
         }
         $message = "Expense record deleted successfully!";
+        log_action($conn, $_SESSION['user_id'], "Deleted expense ID $expense_id");
     } else {
         $error = "Error: " . $conn->error;
     }
+    
 }
 
 // Edit expense

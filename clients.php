@@ -6,6 +6,13 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 }
 include 'config/db.php';
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
 // Initialize variables
 $edit_mode = false;
 $client_id = '';
@@ -23,7 +30,9 @@ if (isset($_GET['delete_id'])) {
 
     if ($conn->query($sql) === TRUE) {
         $message = "<div class='alert alert-success'>Client record deleted successfully!</div>";
-    } else {
+        log_action($conn, $_SESSION['user_id'], "Deleted client ID $delete_id");
+    }
+     else {
         $message = "<div class='alert alert-danger'>Error: " . $conn->error . "</div>";
     }
 }
@@ -43,6 +52,7 @@ if (isset($_GET['edit_id'])) {
         $address = $row['address'];
         $notes = $row['notes'];
     }
+    log_action($conn, $_SESSION['user_id'], "Loaded client ID $edit_id for editing");
 }
 
 // Handle Form Submission - Add or Update
@@ -71,9 +81,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 notes='$notes' 
                 WHERE client_id=$client_id";
 
-        if ($conn->query($sql) === TRUE) {
-            $message = "<div class='alert alert-success'>Client record updated successfully!</div>";
-            $edit_mode = false;
+if ($conn->query($sql) === TRUE) {
+    $message = "<div class='alert alert-success'>Client record updated successfully!</div>";
+    log_action($conn, $_SESSION['user_id'], "Updated client ID $client_id");
+    // reset form...
+      $edit_mode = false;
             $client_id = '';
             $full_name = '';
             $email = '';
@@ -88,8 +100,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $sql = "INSERT INTO clients (full_name, email, phone_number, address, notes) 
                 VALUES ('$full_name', '$email', '$phone', '$address', '$notes')";
 
-        if ($conn->query($sql) === TRUE) {
-            $message = "<div class='alert alert-success'>Client added successfully!</div>";
+if ($conn->query($sql) === TRUE) {
+    $message = "<div class='alert alert-success'>Client added successfully!</div>";
+    $new_client_id = $conn->insert_id;
+    log_action($conn, $_SESSION['user_id'], "Created new client ID $new_client_id ($full_name)");
+    // clear fields...
             $full_name = '';
             $email = '';
             $phone = '';

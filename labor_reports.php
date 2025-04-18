@@ -5,10 +5,21 @@ error_reporting(E_ALL);
 
 // Start output buffering to prevent the "headers already sent" error
 ob_start();
+// Log viewing of labor report
+if (isset($_SESSION['user_id'])) {
+    $log_category = empty($category_filter) ? "All Categories" : "Category ID $category_filter";
+    log_action($conn, $_SESSION['user_id'], "Viewed labor report from $start_date to $end_date filtered by $log_category");
+}
 
 include 'config/db.php';
 require_once 'views/header.php';
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
 
 
 // Set default filter values

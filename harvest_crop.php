@@ -11,10 +11,12 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 include 'config/db.php';
  // Near the top of your PHP file where you get other data
 // Function to get all common issues
-
-
-
-
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
 
 // Define the getAllIssues function here
 function getAllIssues($conn) {
@@ -463,7 +465,12 @@ function addCrop($conn, $crop_data) {
                 $stmt->execute();
             }
         }
+
         
+        // Log the action before committing
+log_action($conn, $_SESSION['user_id'], "Added new crop: " . $crop_data['crop_name']);
+
+
         // Commit transaction
         $conn->commit();
         return $crop_id;

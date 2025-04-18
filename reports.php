@@ -9,6 +9,17 @@ include 'config/db.php';
 $month = isset($_GET['month']) ? $_GET['month'] : date('m');
 $year = isset($_GET['year']) ? $_GET['year'] : date('Y');
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// Log the report viewing
+$month_name = date('F', mktime(0, 0, 0, $month, 1));
+log_action($conn, $_SESSION['user_id'], "Viewed profit report for $month_name $year");
+
 // Fetch filtered Sales & Expenses
 $sql_sales = "SELECT SUM(amount) AS total_sales FROM sales WHERE YEAR(sale_date) = $year AND MONTH(sale_date) = $month";
 $sql_expenses = "SELECT SUM(amount) AS total_expenses FROM expenses WHERE YEAR(expense_date) = $year AND MONTH(expense_date) = $month";
@@ -35,12 +46,11 @@ $total_expenses = $result_expenses->fetch_assoc()['total_expenses'] ?? 0;
 $net_profit = $total_sales - $total_expenses;
 $profit_margin = ($total_sales > 0) ? (($net_profit / $total_sales) * 100) : 0;
 
-// Format month name
+// Format month name again if needed (already defined above)
 $month_name = date('F', mktime(0, 0, 0, $month, 1));
 
 // Include header
 include 'views/header.php';
-
 ?>
 
 <!DOCTYPE html>

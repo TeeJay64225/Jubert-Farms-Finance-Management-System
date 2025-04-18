@@ -7,6 +7,13 @@ include 'config/db.php';
 require_once 'views/header.php';
 require_once 'crop/crop_functions.php';
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
 
 function getHarvestYieldSummary($db, $startDate = null, $endDate = null, $cropId = null) {
     // Base query

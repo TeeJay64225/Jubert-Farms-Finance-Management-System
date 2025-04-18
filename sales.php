@@ -21,6 +21,13 @@ $notes = '';
 $message = '';
 $client_id = NULL; // Initialize client_id variable
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
 // Generate a new invoice number function
 function generateInvoiceNo($conn) {
     $prefix = "INV";
@@ -49,7 +56,10 @@ if (isset($_GET['delete_id'])) {
     $sql = "DELETE FROM sales WHERE sale_id=$delete_id";
     
     if ($conn->query($sql) === TRUE) {
+        log_action($conn, $_SESSION['user_id'], "Deleted sale record with ID: $delete_id");
         $message = "<div class='alert alert-success'>Sale record deleted successfully!</div>";
+    
+    
     } else {
         $message = "<div class='alert alert-danger'>Error: " . $conn->error . "</div>";
     }
@@ -126,8 +136,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 client_id=" . ($client_id ? $client_id : "NULL") . "
                 WHERE sale_id=$sale_id";
         
-        if ($conn->query($sql) === TRUE) {
-            $message = "<div class='alert alert-success'>Sale record updated successfully!</div>";
+                if ($conn->query($sql) === TRUE) {
+                    log_action($conn, $_SESSION['user_id'], "Updated sale record for invoice #$invoice_no (ID: $sale_id)");
+                    $message = "<div class='alert alert-success'>Sale record updated successfully!</div>";                
             // Reset form
             $edit_mode = false;
             $sale_id = '';
@@ -153,7 +164,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 VALUES ('$invoice_no', '$product_name', '$quantity', '$unit_price', '$amount', '$sale_date', '$payment_status', " . ($client_id ? $client_id : "NULL") . ", '$notes')";
         
         if ($conn->query($sql) === TRUE) {
+            log_action($conn, $_SESSION['user_id'], "Added new sale record for invoice #$invoice_no");
             $message = "<div class='alert alert-success'>Sale record added successfully!</div>";
+        
             // Reset form
             $invoice_no = '';
             $product_name = '';

@@ -6,6 +6,15 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 include 'config/db.php';
 require_once 'views/header.php';
 require_once 'crop/crop_functions.php';
+
+
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
 // Initialize variables
 $action = isset($_GET['action']) ? $_GET['action'] : 'list';
 $crop_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;

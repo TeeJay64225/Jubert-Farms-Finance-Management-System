@@ -9,6 +9,12 @@ ob_start();
 include 'config/db.php';
 require_once 'views/header.php';
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
 
 
 // Handle form submissions for adding labor records
@@ -55,28 +61,33 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_labor_record'])) {
         $category_result = mysqli_query($conn, $category_query);
         $category_row = mysqli_fetch_assoc($category_result);
         $category_name = $category_row['category_name'];
-        
-        
+    
         $expense_reason = "Labor: " . $category_name . " (" . $worker_count . " workers)";
-        
+    
         // Get the Labor category ID from expense_categories
         $labor_category_query = "SELECT category_id FROM expense_categories WHERE category_name = 'Labor'";
         $labor_category_result = mysqli_query($conn, $labor_category_query);
-        
+    
         if (mysqli_num_rows($labor_category_result) > 0) {
             $labor_category_row = mysqli_fetch_assoc($labor_category_result);
             $labor_category_id = $labor_category_row['category_id'];
-            
+    
             $expense_sql = "INSERT INTO expenses (expense_reason, amount, expense_date, payment_status, category_id, notes) 
-                           VALUES ('$expense_reason', $total_cost, '$date', 'Paid', $labor_category_id, '$notes')";
-            
+                            VALUES ('$expense_reason', $total_cost, '$date', 'Paid', $labor_category_id, '$notes')";
             mysqli_query($conn, $expense_sql);
         }
-        
+    
         $success_message = "Labor record added successfully!";
+        
+        // ✅ Log the action
+        if (isset($_SESSION['user_id'])) {
+            log_action($conn, $_SESSION['user_id'], "Added labor record for $worker_count workers under category '$category_name' on $date");
+        }
+    
     } else {
         $error_message = "Error: " . mysqli_error($conn);
     }
+    
 }
 
 // Fetch all labor categories for the dropdown

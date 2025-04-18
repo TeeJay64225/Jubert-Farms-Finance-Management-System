@@ -3,12 +3,23 @@ ob_start(); // Add this as the first line
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
+session_start(); // (Add this if not already present)
+
+if (isset($_SESSION['user_id'])) {
+    log_action($conn, $_SESSION['user_id'], "Accessed crop category management page");
+}
 
 
 // rest of your code
 include 'config/db.php';
 require_once 'views/header.php';
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
 
 
 // Initialize messages
@@ -26,6 +37,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         if ($conn->query($sql) === TRUE) {
             $success_message = "New crop category created successfully";
+            log_action($conn, $_SESSION['user_id'], "Created crop category: '$category_name'");
         } else {
             $error_message = "Error: " . $sql . "<br>" . $conn->error;
         }
@@ -41,6 +53,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         if ($conn->query($sql) === TRUE) {
             $success_message = "Crop category updated successfully";
+            log_action($conn, $_SESSION['user_id'], "Updated crop category ID $category_id to '$category_name'");
         } else {
             $error_message = "Error: " . $sql . "<br>" . $conn->error;
         }
@@ -54,6 +67,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         if ($conn->query($sql) === TRUE) {
             $success_message = "Crop category deleted successfully";
+            log_action($conn, $_SESSION['user_id'], "Deleted crop category ID $category_id");
+
         } else {
             $error_message = "Error: " . $sql . "<br>" . $conn->error;
         }

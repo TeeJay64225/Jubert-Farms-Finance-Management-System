@@ -264,13 +264,17 @@
                     <a href="labor_management.php"><i class="fas fa-users-cog"></i> Labor Management</a>
                     <a href="labor_reports.php"><i class="fas fa-file-contract"></i> Labor Reports</a>
                     <a href="labor_tracking.php"><i class="fas fa-user-clock"></i> Labor Tracking</a>
+                   
                 </div>
             </div>
-            
+            <a href="add_chem.php" class="nav-btn"><i class="fas fa-user-clock"></i> Chemical Supply</a>
+            <a href="chem_supply.php" class="nav-btn"><i class="fas fa-user-clock"></i> Chemical Supply</a>
             <a href="report.php" class="nav-btn"><i class="fas fa-file-alt"></i> Reports</a>
+            <a href="audit_logs.php" class="nav-btn"><i class="fas fa-shield-alt"></i> Audit</a>
         </div>
         
         <!-- User Info and Logout -->
+         
         <div>
             <a href="logout.php" class="btn btn-light btn-sm"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </div>

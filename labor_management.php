@@ -11,6 +11,12 @@ error_reporting(E_ALL);
 include 'config/db.php';
 require_once 'views/header.php';
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
 
 
 // Handle form submissions for adding/editing categories
@@ -27,6 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         if (mysqli_query($conn, $sql)) {
             $success_message = "Labor category added successfully!";
+            if (isset($_SESSION['user_id'])) {
+                log_action($conn, $_SESSION['user_id'], "Added labor category '$name'");
+            }            
         } else {
             $error_message = "Error: " . mysqli_error($conn);
         }
@@ -44,6 +53,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         if (mysqli_query($conn, $sql)) {
             $success_message = "Labor category updated successfully!";
+            if (isset($_SESSION['user_id'])) {
+                log_action($conn, $_SESSION['user_id'], "Updated labor category ID $id to '$name'");
+            }            
         } else {
             $error_message = "Error: " . mysqli_error($conn);
         }
@@ -54,6 +66,10 @@ if (isset($_GET['delete']) && isset($_GET['id'])) {
     $id = mysqli_real_escape_string($conn, $_GET['id']);
     
     $sql = "DELETE FROM labor_categories WHERE id = $id";
+    $success_message = "Labor category deleted successfully!";
+    if (isset($_SESSION['user_id'])) {
+        log_action($conn, $_SESSION['user_id'], "Deleted labor category ID $id");
+    }    
     
     if (mysqli_query($conn, $sql)) {
         $success_message = "Labor category deleted successfully!";

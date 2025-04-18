@@ -49,6 +49,7 @@ letter_content TEXT NOT NULL,
 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
 );
+
 -- Audit Logs Table (Tracks user actions) 
 CREATE TABLE IF NOT EXISTS audit_logs (
 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -603,3 +604,92 @@ INSERT INTO task_types (type_name, color_code, icon, description) VALUES
 ('Weeding', '#795548', 'weed', 'Removing unwanted plants'),
 ('Pruning', '#607d8b', 'scissors', 'Trimming plants for optimal growth');
 
+-- Create the suppliers table to store supplier company information
+CREATE TABLE IF NOT EXISTS suppliers (
+    supplier_id INT AUTO_INCREMENT PRIMARY KEY,
+    company_name VARCHAR(255) NOT NULL,
+    contact_person VARCHAR(100),
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    address TEXT NOT NULL,
+    notes TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Create the product categories table for organizing chemical supplies
+CREATE TABLE IF NOT EXISTS product_categories (
+    category_id INT AUTO_INCREMENT PRIMARY KEY,
+    category_name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create the products table to store chemical supply details
+CREATE TABLE IF NOT EXISTS chemical_products (
+    product_id INT AUTO_INCREMENT PRIMARY KEY,
+    product_name VARCHAR(255) NOT NULL,
+    supplier_id INT NOT NULL,
+    category_id INT,
+    description TEXT,
+    unit_of_measure VARCHAR(50) NOT NULL,
+    price_per_unit DECIMAL(10,2),
+    application_rate VARCHAR(100),
+    safety_info TEXT,
+    composition TEXT,
+    registration_number VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(supplier_id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES product_categories(category_id) ON DELETE SET NULL
+);
+
+-- Create inventory table to track stock levels of chemical products
+CREATE TABLE IF NOT EXISTS chemical_inventory (
+    inventory_id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    quantity DECIMAL(10,2) NOT NULL,
+    batch_number VARCHAR(100),
+    expiration_date DATE,
+    purchase_date DATE NOT NULL,
+    purchase_price DECIMAL(10,2) NOT NULL,
+    location VARCHAR(100),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES chemical_products(product_id) ON DELETE CASCADE
+);
+
+-- Create table to track chemical usage on crops
+CREATE TABLE IF NOT EXISTS chemical_applications (
+    application_id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    cycle_id INT,
+    application_date DATE NOT NULL,
+    quantity_used DECIMAL(10,2) NOT NULL,
+    area_treated VARCHAR(100),
+    applied_by VARCHAR(100),
+    weather_conditions TEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES chemical_products(product_id) ON DELETE CASCADE,
+    FOREIGN KEY (cycle_id) REFERENCES crop_cycles(cycle_id) ON DELETE SET NULL
+);
+
+-- Insert default product categories
+INSERT INTO product_categories (category_name, description) VALUES
+('Fertilizers', 'Products that provide nutrients to plants'),
+('Pesticides', 'Products that control pests including insects'),
+('Herbicides', 'Products that control weeds and unwanted plants'),
+('Fungicides', 'Products that control fungal diseases'),
+('Growth Regulators', 'Products that regulate plant growth processes'),
+('Soil Amendments', 'Products that improve soil quality');
+
+-- Create indexes for better performance
+CREATE INDEX idx_chemical_products_supplier ON chemical_products(supplier_id);
+CREATE INDEX idx_chemical_products_category ON chemical_products(category_id);
+CREATE INDEX idx_chemical_inventory_product ON chemical_inventory(product_id);
+CREATE INDEX idx_chemical_applications_product ON chemical_applications(product_id);
+CREATE INDEX idx_chemical_applications_cycle ON chemical_applications(cycle_id);

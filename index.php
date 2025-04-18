@@ -3,6 +3,13 @@ session_start();
 ob_start(); // Prevent output before headers
 include 'config/db.php';
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $username = trim($_POST['username']);
     $password = trim($_POST['password']);
@@ -20,15 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_SESSION['user_id'] = $id;
             $_SESSION['username'] = $username;
             $_SESSION['role'] = $role;
-            
-            // Debugging: Check role output
-            // echo "User Role: " . $role;
-            // exit();
-            
-            // Redirect based on user role
+        
+            log_action($conn, $id, "Logged in as $role");
+        
             switch (strtolower($role)) { 
                 case 'admin':
-                    header("Location: admin/select_section.php"); // Redirect to the correct folder
+                    header("Location: admin/select_section.php");
                     exit();
                 case 'manager':
                     header("Location: manager/manager_dashboard.php");
@@ -39,14 +43,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 default:
                     header("Location: index.php");
                     exit();
-            }            
-            
+            }
         } else {
             $error = "Invalid username or password.";
+            log_action($conn, null, "Failed login attempt with username '$username'");
         }
-    } else {
-        $error = "Invalid username or password.";
-    }
+    }        
     
     $stmt->close();
 }

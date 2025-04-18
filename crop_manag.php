@@ -6,6 +6,14 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 }
 require_once 'config/db.php';
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+log_action($conn, $_SESSION['user_id'], "Accessed crop management page");
+
 // Initialize variables
 $crop_id = '';
 $crop_name = '';
@@ -160,6 +168,7 @@ function handleCreateCrop() {
             }
             
             $success = "Crop added successfully";
+            log_action($conn, $_SESSION['user_id'], "Created new crop: $crop_name");
             // Reset form fields
             resetFormFields();
         } else {
@@ -241,6 +250,8 @@ function handleUpdateCrop($crop_id) {
             }
             
             $success = "Crop updated successfully";
+            log_action($conn, $_SESSION['user_id'], "Updated crop ID $crop_id: $crop_name");
+
         } else {
             $error = "Error: " . $stmt->error;
         }
@@ -279,6 +290,7 @@ function handleDeleteCrop($crop_id) {
             }
             
             $success = "Crop deleted successfully";
+            log_action($conn, $_SESSION['user_id'], "Deleted crop ID $crop_id");
             resetFormFields();
         } else {
             $error = "Error: " . $stmt->error;
@@ -469,7 +481,7 @@ include 'views/header.php';
     <link rel="icon" type="image/svg+xml" href="assets/fab.svg">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
-    <link rel="stylesheet" href="assets/css/crop-management.css">
+
     <style>
         .preview-image {
             max-width: 100px;

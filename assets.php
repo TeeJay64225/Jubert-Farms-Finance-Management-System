@@ -6,6 +6,14 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 }
 include 'config/db.php';
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
+
 // Process form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (isset($_POST['action'])) {
@@ -75,6 +83,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
                 
                 $message = "Asset updated successfully!";
+                log_action($conn, $_SESSION['user_id'], "Updated asset ID $asset_id: $asset_name");
             } else {
                 $error = "Error: " . $conn->error;
             }
@@ -111,6 +120,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $message = $remove_all ? 
                     "Asset '{$current_data['asset_name']}' has been removed from inventory." : 
                     "Quantity reduced by $quantity for asset '{$current_data['asset_name']}'.";
+                    log_action($conn, $_SESSION['user_id'], "Removed $quantity of asset ID $asset_id due to '$reason'");
             } else {
                 $error = "Error: " . $conn->error;
             }
@@ -134,6 +144,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $conn->query($transaction_sql);
                 
                 $message = "Maintenance record added successfully!";
+                log_action($conn, $_SESSION['user_id'], "Recorded maintenance for asset ID $asset_id on $maintenance_date");
             } else {
                 $error = "Error: " . $conn->error;
             }

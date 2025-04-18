@@ -9,6 +9,14 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 
 include '../config/db.php';
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+log_action($conn, $_SESSION['user_id'], "Viewed admin dashboard");
+
 /**
  * Get dashboard summary data for the admin panel
  * @return array Associative array containing all dashboard data
@@ -16,7 +24,7 @@ include '../config/db.php';
 function getDashboardData() {
     global $conn;
     $dashboardData = [];
-    
+    log_action($conn, $_SESSION['user_id'], "Viewed admin dashboard");
     //paid total_sales
     //not paid total_receivables
     // Total Revenue (Paid + Not Paid)
@@ -367,7 +375,55 @@ $conn->close();
     </style>
 </head>
 <body>
-   
+   <!-- Add this CSS to your existing style section -->
+<style>
+    /* Toggle Button Styles */
+    .nav-toggle-container {
+        display: flex;
+        align-items: center;
+    }
+    
+    .toggle-btn {
+        color: white;
+        background-color: rgba(255, 255, 255, 0.1);
+        border: 1px solid white;
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.25rem;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        transition: all 0.3s;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+    
+    .toggle-btn:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+    
+    .toggle-btn.dashboard-active {
+        background-color: rgba(255, 255, 255, 0.15);
+        border-color: var(--accent-color);
+    }
+    
+    .toggle-btn.payroll-active {
+        background-color: rgba(255, 255, 255, 0.15);
+        border-color: var(--accent-color);
+    }
+    
+    .toggle-label i {
+        margin-right: 5px;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 992px) {
+        .nav-toggle-container {
+            margin-top: 10px;
+            align-self: flex-start;
+        }
+    }
+</style>
 <!-- Navbar -->
 <nav class="navbar navbar-dark">
     <div class="container-fluid">
@@ -453,15 +509,34 @@ $conn->close();
                     <a href="../labor_tracking.php"><i class="fas fa-user-clock"></i> Labor Tracking</a>
                 </div>
             </div>
-            
+            <a href="../add_chem.php" class="nav-btn"><i class="fas fa-user-clock"></i> Chemical Supply</a>
+            <a href="../chem_supply.php" class="nav-btn"><i class="fas fa-user-clock"></i> Chemical Supply</a>
+            <a href="../audit_logs.php" class="nav-btn"><i class="fas fa-shield-alt"></i> Audit </a>
             <a href="../report.php" class="nav-btn"><i class="fas fa-file-alt"></i> Reports</a>
         </div>
         
         <!-- User Info and Logout -->
+         <!-- Add this to your navbar, typically near the user info and logout section -->
+        <!-- Add this to your navbar, typically near the user info and logout section -->
+        <div class="nav-toggle-container me-2">
+    <div class="toggle-switch">
+        <?php 
+        // Get current page filename
+        $current_page = basename($_SERVER['PHP_SELF']);
+        $is_dashboard = ($current_page == '../admin/dashboard.php');
+        ?>
+        <a href="<?php echo $is_dashboard ? '../admin/dashboard.php' : '../admin/payroll_dashboard.php'; ?>" 
+           class="toggle-btn <?php echo $is_dashboard ? 'dashboard-active' : 'payroll-active'; ?>">
+            <span class="toggle-label"><i class="fas <?php echo $is_dashboard ? 'fa-chart-line' : 'fa-money-bill-wave'; ?>"></i> 
+            <?php echo $is_dashboard ? 'Switch to Finance' : 'Switch to Payroll'; ?></span>
+        </a>
+    </div>
         <div>
             <a href="../logout.php" class="btn btn-light btn-sm"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </div>
     </div>
+     
+</div>
 </nav>
 
 <!-- JavaScript for dropdown functionality -->

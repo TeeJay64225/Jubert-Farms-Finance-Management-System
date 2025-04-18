@@ -8,6 +8,13 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 require_once 'config/db.php'; // your DB connection 
 require_once 'functions.php'; // added utility functions file
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
 // Initialize variables
 $response = '';
 $response_type = '';
@@ -99,6 +106,7 @@ if ($action === 'create_invoice' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Commit transaction
             $conn->commit();
+            log_action($conn, $_SESSION['user_id'], "Created invoice #$invoice_no for client ID $client_id.");
             $response = "Invoice #$invoice_no created successfully.";
             $response_type = "success";
         } catch (Exception $e) {
@@ -164,6 +172,7 @@ if ($action === 'generate_receipt' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Commit transaction
             $conn->commit();
+            log_action($conn, $_SESSION['user_id'], "Generated receipt #$receipt_no for invoice ID $invoice_id.");
             $response = "Receipt generated successfully and invoice status updated.";
             $response_type = "success";
         } catch (Exception $e) {
@@ -183,9 +192,11 @@ if ($action === 'delete_invoice' && isset($_GET['id'])) {
         $stmt = $conn->prepare("DELETE FROM invoices WHERE invoice_id = ?");
         $stmt->bind_param("i", $invoice_id);
         if ($stmt->execute()) {
+            log_action($conn, $_SESSION['user_id'], "Deleted invoice ID $invoice_id.");
             $response = "Invoice deleted successfully.";
             $response_type = "success";
-        } else {
+        }
+         else {
             $response = "Error deleting invoice: " . $stmt->error;
             $response_type = "error";
         }

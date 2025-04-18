@@ -6,6 +6,13 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 }
 include 'config/db.php';
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
 // Process form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (isset($_POST['action'])) {
@@ -19,6 +26,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             
             if ($conn->query($sql) === TRUE) {
                 $message = "Asset category added successfully!";
+                log_action($conn, $_SESSION['user_id'], "Added asset category: $category_name");
             } else {
                 $error = "Error: " . $conn->error;
             }
@@ -33,6 +41,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             if ($conn->query($sql) === TRUE) {
                 $message = "Asset category updated successfully!";
+                log_action($conn, $_SESSION['user_id'], "Updated asset category ID $category_id");
             } else {
                 $error = "Error: " . $conn->error;
             }
@@ -56,6 +65,7 @@ if (isset($_GET['delete'])) {
         
         if ($conn->query($sql) === TRUE) {
             $message = "Asset category deleted successfully!";
+            log_action($conn, $_SESSION['user_id'], "Deleted asset category ID $category_id");
         } else {
             $error = "Error: " . $conn->error;
         }

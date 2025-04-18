@@ -7,6 +7,14 @@ if (!isset($_GET['invoice_id'])) {
 }
 
 $invoice_id = $_GET['invoice_id'];
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
+
 
 // Fetch invoice, client, and receipt info
 $invoice_query = $conn->prepare("

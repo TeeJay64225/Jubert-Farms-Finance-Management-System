@@ -1,9 +1,12 @@
 <?php
 session_start();
+
+// Only allow Admin users
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
     header("Location: views/login.php");
     exit();
 }
+
 include 'config/db.php';
 
 // Initialize variables
@@ -14,56 +17,77 @@ $password = '';
 $role = 'Employee';
 $message = '';
 
+// Function to log actions
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
 // Handle Delete Operation
 if (isset($_GET['delete_id'])) {
-    $delete_id = $_GET['delete_id'];
+    $delete_id = intval($_GET['delete_id']); // Sanitize the ID
     $sql = "DELETE FROM users WHERE id=$delete_id";
 
     if ($conn->query($sql) === TRUE) {
+        // Log the action
+        log_action($conn, $_SESSION['user_id'], "Deleted user with ID: $delete_id");
+
         $message = "<div class='alert alert-success'>User record deleted successfully!</div>";
     } else {
         $message = "<div class='alert alert-danger'>Error: " . $conn->error . "</div>";
     }
 }
 
+
 // Handle Edit Operation - Load Data
 if (isset($_GET['edit_id'])) {
-    $edit_id = $_GET['edit_id'];
+    $edit_id = intval($_GET['edit_id']); // Sanitize input
     $result = $conn->query("SELECT * FROM users WHERE id=$edit_id");
 
-    if ($result->num_rows > 0) {
+    if ($result && $result->num_rows > 0) {
         $edit_mode = true;
         $row = $result->fetch_assoc();
         $user_id = $row['id'];
         $username = $row['username'];
         $role = $row['role'];
+
+        // Log this edit view action
+        log_action($conn, $_SESSION['user_id'], "Loaded edit page for user with ID: $edit_id");
     }
 }
 
+
+
+
 // Handle Form Submission - Add or Update
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST['username'];
+    $username = $conn->real_escape_string($_POST['username']);
     $password = $_POST['password'];
-    $role = $_POST['role'];
+    $role = $conn->real_escape_string($_POST['role']);
 
-    // Sanitize inputs
-    $username = $conn->real_escape_string($username);
-    $role = $conn->real_escape_string($role);
-
-    // Hash the password before saving
-    $password_hash = password_hash($password, PASSWORD_BCRYPT);
+    // Hash the password only if it's not empty
+    $password_hash = !empty($password) ? password_hash($password, PASSWORD_BCRYPT) : null;
 
     if (isset($_POST['user_id']) && !empty($_POST['user_id'])) {
         // Update existing record
-        $user_id = $_POST['user_id'];
-        $sql = "UPDATE users SET 
-                username='$username', 
-                password='$password_hash', 
-                role='$role' 
-                WHERE id=$user_id";
+        $user_id = intval($_POST['user_id']);
+
+        if ($password_hash) {
+            // If password is updated
+            $sql = "UPDATE users SET username='$username', password='$password_hash', role='$role' WHERE id=$user_id";
+        } else {
+            // Don't update password if left empty
+            $sql = "UPDATE users SET username='$username', role='$role' WHERE id=$user_id";
+        }
 
         if ($conn->query($sql) === TRUE) {
             $message = "<div class='alert alert-success'>User record updated successfully!</div>";
+
+            // Log update action
+            log_action($conn, $_SESSION['user_id'], "Updated user with ID: $user_id");
+
             $edit_mode = false;
             $user_id = '';
             $username = '';
@@ -72,13 +96,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
             $message = "<div class='alert alert-danger'>Error: " . $conn->error . "</div>";
         }
+
     } else {
         // Add new record
-        $sql = "INSERT INTO users (username, password, role) 
-                VALUES ('$username', '$password_hash', '$role')";
+        $sql = "INSERT INTO users (username, password, role) VALUES ('$username', '$password_hash', '$role')";
 
         if ($conn->query($sql) === TRUE) {
+            $new_id = $conn->insert_id;
             $message = "<div class='alert alert-success'>User added successfully!</div>";
+
+            // Log add action
+            log_action($conn, $_SESSION['user_id'], "Added new user with ID: $new_id");
+
             $username = '';
             $password = '';
             $role = 'Employee';
@@ -87,6 +116,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 }
+
 
 // Get all user records for display
 $sql = "SELECT * FROM users ORDER BY username ASC";

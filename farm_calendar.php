@@ -6,7 +6,17 @@ ini_set('display_errors', 1);
 include 'config/db.php';
 include 'crop/calendar_functions.php';
 
+// Log user calendar access
+if (isset($_SESSION['user_id'])) {
+    log_action($conn, $_SESSION['user_id'], "Accessed farm calendar");
+}
 
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
 
 
 // === AJAX HANDLERS - MUST COME BEFORE ANY HTML OUTPUT ===
@@ -21,8 +31,13 @@ if (isset($_GET['ajax'])) {
         
         try {
             $date = $_GET['date'] ?? date('Y-m-d');
+                
+            if (isset($_SESSION['user_id'])) {
+                log_action($conn, $_SESSION['user_id'], "Viewed details for date $date");
+            }
             $events = getEventsForDate($conn, $date);
-            
+          
+
             // Log the data we're about to return
             error_log("Events for date $date: " . json_encode($events));
             
@@ -65,6 +80,10 @@ if (isset($_GET['ajax'])) {
                 $success = $stmt->execute();
                 $message = $success ? 'Harvest rescheduled successfully' : 'Failed to reschedule harvest';
             }
+            if ($success && isset($_SESSION['user_id'])) {
+                $type = ucfirst($event_type);
+                log_action($conn, $_SESSION['user_id'], "$type ID $event_id rescheduled to $new_date");
+            }
         }
         
         echo json_encode(['success' => $success, 'message' => $message]);
@@ -88,6 +107,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'ical') {
     header('Content-Type: text/calendar; charset=utf-8');
     header('Content-Disposition: attachment; filename="farm_calendar.ics"');
     echo $ical_content;
+    if (isset($_SESSION['user_id'])) {
+        log_action($conn, $_SESSION['user_id'], "Exported iCal from $start_date to $end_date");
+    }
     exit();
 }
 
@@ -282,6 +304,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'ical') {
     header('Content-Type: text/calendar; charset=utf-8');
     header('Content-Disposition: attachment; filename="farm_calendar.ics"');
     echo $ical_content;
+    if (isset($_SESSION['user_id'])) {
+        log_action($conn, $_SESSION['user_id'], "Exported iCal from $start_date to $end_date");
+    }
     exit();
 }
 
@@ -361,6 +386,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'reschedule_event') {
             $stmt->bind_param("si", $new_date, $harvest_id);
             $success = $stmt->execute();
             $message = $success ? 'Harvest rescheduled successfully' : 'Failed to reschedule harvest';
+        }
+        if ($success && isset($_SESSION['user_id'])) {
+            $type = ucfirst($event_type);
+            log_action($conn, $_SESSION['user_id'], "$type ID $event_id rescheduled to $new_date");
         }
     }
     

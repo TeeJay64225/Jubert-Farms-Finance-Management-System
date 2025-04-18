@@ -3,14 +3,8 @@
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
-
-
 include 'config/db.php';
-
-
-
 require_once  'crop/task_functions.php';
-
 require_once 'views/header.php';
 // Check if user is logged in with admin privileges
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
@@ -21,6 +15,13 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
 // Process form submissions
 $message = '';
 $messageType = '';
+
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
 
 // Get all active crop cycles for the dropdown
 $cyclesQuery = "SELECT cc.cycle_id, c.crop_name, cc.field_or_location 
@@ -38,8 +39,11 @@ while ($row = $cyclesResult->fetch_assoc()) {
 $taskTypes = getTaskTypes($conn);
 
 // Handle form submission for adding/editing tasks
+// Handle form submission for adding/editing tasks
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
+        $logged_in_user = $_SESSION['user_id']; // current user
+
         // Add new task
         if ($_POST['action'] === 'add') {
             $cycle_id = $_POST['cycle_id'];
@@ -51,11 +55,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (addTask($conn, $cycle_id, $task_type_id, $task_name, $scheduled_date, $notes)) {
                 $message = "Task added successfully!";
                 $messageType = "success";
+                log_action($conn, $logged_in_user, "Added task '$task_name' for cycle ID $cycle_id");
             } else {
                 $message = "Error adding task.";
                 $messageType = "danger";
             }
         }
+
         // Edit existing task
         elseif ($_POST['action'] === 'edit') {
             $task_id = $_POST['task_id'];
@@ -67,11 +73,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (updateTask($conn, $task_id, $task_name, $scheduled_date, $notes, $completion_status)) {
                 $message = "Task updated successfully!";
                 $messageType = "success";
+                log_action($conn, $logged_in_user, "Updated task ID $task_id - New name: '$task_name'");
             } else {
                 $message = "Error updating task.";
                 $messageType = "danger";
             }
         }
+
         // Delete task
         elseif ($_POST['action'] === 'delete') {
             $task_id = $_POST['task_id'];
@@ -79,6 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (deleteTask($conn, $task_id)) {
                 $message = "Task deleted successfully!";
                 $messageType = "success";
+                log_action($conn, $logged_in_user, "Deleted task ID $task_id");
             } else {
                 $message = "Error deleting task.";
                 $messageType = "danger";
@@ -86,6 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
 
 // Get date range for displaying tasks (default: current month)
 $start_date = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-01');

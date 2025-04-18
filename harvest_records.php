@@ -4,6 +4,12 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Start the session at the beginning
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
 
 
 // Process form submissions - MOVED TO BEGINNING
@@ -44,6 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     if ($result) {
                         $_SESSION['success'] = "Harvest record added successfully.";
+                        if (isset($_SESSION['user_id'])) {
+                            log_action($conn, $_SESSION['user_id'], "Added new harvest record for cycle ID $cycle_id on $harvest_date");
+                        }                    
                     } else {
                         $_SESSION['error'] = "Failed to add harvest record: " . $conn->error;
                     }
@@ -79,6 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     if ($result) {
                         $_SESSION['success'] = "Harvest record updated successfully.";
+                        if (isset($_SESSION['user_id'])) {
+                            log_action($conn, $_SESSION['user_id'], "Updated harvest record ID $harvest_id for cycle ID $cycle_id on $harvest_date");
+                        }                    
                     } else {
                         $_SESSION['error'] = "Failed to update harvest record: " . $conn->error;
                     }
@@ -94,6 +106,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     if ($result) {
                         $_SESSION['success'] = "Harvest record deleted successfully.";
+                        if (isset($_SESSION['user_id'])) {
+                            log_action($conn, $_SESSION['user_id'], "Deleted harvest record ID $harvest_id");
+                        }                    
                     } else {
                         $_SESSION['error'] = "Failed to delete harvest record: " . $conn->error;
                     }
