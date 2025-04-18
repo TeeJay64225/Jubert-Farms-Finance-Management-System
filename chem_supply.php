@@ -168,7 +168,7 @@ $products = mysqli_query($conn, $productsQuery);
                         <p class="text-muted">View and manage all chemical products in inventory</p>
                     </div>
                     <div>
-                        <a href="add_chemical_product.php" class="btn btn-success">
+                        <a href="add_chem.php" class="btn btn-success">
                             <i class="fas fa-plus-circle"></i> Add New Product
                         </a>
                     </div>
@@ -326,7 +326,7 @@ $products = mysqli_query($conn, $productsQuery);
                         </div>
                         
                         <div class="d-flex justify-content-between mt-4">
-                            <a href="products_list.php" class="btn btn-secondary">Back to List</a>
+                            <a href="chem_supply.php" class="btn btn-secondary">Back to List</a>
                             <a href="?edit_id=<?php echo $viewProduct['product_id']; ?>" class="btn btn-warning">
                                 <i class="fas fa-edit"></i> Edit Product
                             </a>
@@ -426,7 +426,7 @@ $products = mysqli_query($conn, $productsQuery);
                             </div>
                             
                             <div class="d-flex justify-content-between mt-4">
-                                <a href="products_list.php" class="btn btn-secondary">Cancel</a>
+                                <a href="chem_supply.php" class="btn btn-secondary">Cancel</a>
                                 <button type="submit" name="update_product" class="btn btn-primary">
                                     <i class="fas fa-save"></i> Update Product
                                 </button>
@@ -474,7 +474,7 @@ $products = mysqli_query($conn, $productsQuery);
                             </div>
                             
                             <div class="d-flex justify-content-between mt-4">
-                                <a href="products_list.php" class="btn btn-secondary">Cancel</a>
+                                <a href="chem_supply.php" class="btn btn-secondary">Cancel</a>
                                 <button type="submit" name="add_inventory" class="btn btn-success">
                                     <i class="fas fa-plus-circle"></i> Add to Inventory
                                 </button>

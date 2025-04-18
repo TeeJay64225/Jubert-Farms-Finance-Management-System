@@ -76,7 +76,7 @@ if (isset($_POST['add_product'])) {
             
             // Redirect to products list after successful add
             if (!isset($warning)) {
-                header("Location: products_list.php?added=1");
+                header("Location: add_chem.php?added=1");
                 exit();
             }
         } else {
@@ -135,7 +135,7 @@ while ($row = mysqli_fetch_assoc($companies)) {
                         <p class="text-muted">Create a new chemical product entry in the database</p>
                     </div>
                     <div>
-                        <a href="products_list.php" class="btn btn-secondary">
+                        <a href="chem_supply.php" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Back to Products List
                         </a>
                     </div>
@@ -301,7 +301,7 @@ while ($row = mysqli_fetch_assoc($companies)) {
                             </div>
                             
                             <div class="d-flex justify-content-between mt-4 pt-3 border-top">
-                                <a href="products_list.php" class="btn btn-secondary">
+                                <a href="add_chem.php" class="btn btn-secondary">
                                     <i class="fas fa-times"></i> Cancel
                                 </a>
                                 <button type="submit" name="add_product" class="btn btn-success">

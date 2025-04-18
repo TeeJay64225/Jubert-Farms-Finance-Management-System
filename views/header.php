@@ -267,7 +267,7 @@
                    
                 </div>
             </div>
-            <a href="add_chem.php" class="nav-btn"><i class="fas fa-user-clock"></i> Chemical Supply</a>
+            <a href="add_chem.php" class="nav-btn"><i class="fas fa-user-clock"></i> Add Chemical Supply</a>
             <a href="chem_supply.php" class="nav-btn"><i class="fas fa-user-clock"></i> Chemical Supply</a>
             <a href="report.php" class="nav-btn"><i class="fas fa-file-alt"></i> Reports</a>
             <a href="audit_logs.php" class="nav-btn"><i class="fas fa-shield-alt"></i> Audit</a>
