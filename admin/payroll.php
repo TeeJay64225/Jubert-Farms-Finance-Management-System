@@ -600,7 +600,7 @@ if ($result->num_rows > 0) {
                                 <input type="text" name="description" id="description" class="form-control" required placeholder="e.g., Tax, Insurance, Loan">
                             </div>
                             <div class="form-group col-md-4">
-                                <label for="amount">Amount ($)</label>
+                                <label for="amount">Amount (GHS)</label>
                                 <input type="number" name="amount" id="amount" class="form-control" min="0.01" step="0.01" required>
                             </div>
                             <div class="form-group col-md-4">
@@ -682,7 +682,7 @@ if ($result->num_rows > 0) {
                                 <input type="text" name="description" id="description" class="form-control" required placeholder="e.g., Bonus, Overtime, Allowance">
                             </div>
                             <div class="form-group col-md-4">
-                                <label for="amount">Amount ($)</label>
+                                <label for="amount">Amount (GHS)</label>
                                 <input type="number" name="amount" id="amount" class="form-control" min="0.01" step="0.01" required>
                             </div>
                             <div class="form-group col-md-4">
