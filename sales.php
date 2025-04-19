@@ -387,7 +387,7 @@ include 'views/header.php';
                                     "<span class='badge bg-success'>Paid</span>" : 
                                     "<span class='badge bg-warning'>Not Paid</span>") . "</td>
                                 <td>" . ($row['client_name'] ? $row['client_name'] : '-') . "</td>
-                                <td>" . (strlen($row['notes']) > 50 ? substr($row['notes'], 0, 50) . "..." : $row['notes']) . "</td>
+                               <td>" . (!empty($row['notes']) && strlen($row['notes']) > 50 ? substr($row['notes'], 0, 50) . "..." : ($row['notes'] ?? '-')) . "</td>
                                 <td>
                                     <a href='sales.php?edit_id={$row['sale_id']}' class='btn btn-sm btn-primary'>Edit</a>
                                     <a href='sales.php?delete_id={$row['sale_id']}' class='btn btn-sm btn-danger' 

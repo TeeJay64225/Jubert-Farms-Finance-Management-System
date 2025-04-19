@@ -1,4 +1,6 @@
 <?php
+ob_start(); // Start output buffering to avoid premature output
+
 require('fpdf186/fpdf.php');
 require('config/db.php');
 
@@ -7,8 +9,16 @@ if (!isset($_GET['invoice_id'])) {
 }
 
 $invoice_id = $_GET['invoice_id'];
+
+// If you're using a receipt number for fetching stats, ensure it's also provided
+if (!isset($_GET['receipt_no'])) {
+    die("Receipt number is required.");
+}
+
+$receipt_no = $_GET['receipt_no'];
+
 function log_action($conn, $user_id, $action) {
-    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, $action)");
     $stmt->bind_param("is", $user_id, $action);
     $stmt->execute();
     $stmt->close();
@@ -48,6 +58,70 @@ if ($receipt_result->num_rows === 0) {
 }
 
 $receipt = $receipt_result->fetch_assoc();
+
+function getReceiptStatsByReceiptNo($conn, $receipt_no) {
+    // First, get the invoice_id for this receipt_no
+    $stmt = $conn->prepare("SELECT invoice_id FROM receipts WHERE receipt_no = ? LIMIT 1");
+    $stmt->bind_param("s", $receipt_no);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $receipt = $result->fetch_assoc();
+    $stmt->close();
+
+    if (!$receipt) {
+        return null; // Invalid receipt_no
+    }
+
+    $invoice_id = $receipt['invoice_id'];
+
+    // Get invoice total
+    $stmt = $conn->prepare("SELECT total_amount FROM invoices WHERE invoice_id = ? LIMIT 1");
+    $stmt->bind_param("i", $invoice_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $invoice = $result->fetch_assoc();
+    $stmt->close();
+
+    if (!$invoice) {
+        return null; // Invoice not found
+    }
+
+    $total_invoice_amount = $invoice['total_amount'];
+
+    // Fetch all payments for this invoice
+    $stmt = $conn->prepare("SELECT * FROM receipts WHERE invoice_id = ? ORDER BY payment_date ASC");
+    $stmt->bind_param("i", $invoice_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $payment_history = [];
+    $total_paid = 0;
+
+    while ($payment = $result->fetch_assoc()) {
+        $payment_history[] = $payment;
+        $total_paid += $payment['payment_amount'];
+    }
+
+    $stmt->close();
+
+    $balance_due = $total_invoice_amount - $total_paid;
+
+    return [
+        'invoice_id' => $invoice_id,
+        'total_invoice_amount' => $total_invoice_amount,
+        'total_paid' => $total_paid,
+        'balance_due' => $balance_due,
+        'payment_history' => $payment_history
+    ];
+}
+
+
+
+
+// Fallback in case NULL
+$num_payments = $receipt_stats['count'] ?? 0;
+$total_paid = $receipt_stats['total_paid'] ?? 0.00;
+
 
 // Extend FPDF to create custom elements
 class PDF extends FPDF {
@@ -210,33 +284,9 @@ class PDF extends FPDF {
         parent::_putresources();
     }
     
-    // Method to add a "PAID" stamp
-    function AddPaidStamp($x, $y, $width = 150) {
-        // Save current state
-        $this->_out('q');
-        
-        // Rotate
-        $this->_out('1 0 0 1 '.($x).' '.($y).' cm');
-        $this->_out('0.7071 0.7071 -0.7071 0.7071 0 0 cm');
-        
-        // Draw red rectangle with "PAID" text
-        $this->SetFillColor(255, 0, 0);
-        $this->SetAlpha(0.5);
-        $this->SetTextColor(255, 255, 255);
-        $this->SetFont('Arial', 'B', 50);
-        
-        $rectWidth = $width;
-        $rectHeight = 50;
-        $this->Rect(-$rectWidth/2, -$rectHeight/2, $rectWidth, $rectHeight, 'F');
-        
-        // Text
-        $this->SetXY(-$rectWidth/2 + 20, -$rectHeight/2 + 8);
-        $this->Cell($rectWidth - 40, $rectHeight - 16, 'PAID', 0, 0, 'C');
-        
-        // Restore state
-        $this->SetAlpha(1);
-        $this->_out('Q');
-    }
+
+
+
     
     function Footer() {
         // Position footer exactly at bottom of page
@@ -274,6 +324,38 @@ class PDF extends FPDF {
         $this->SetXY($emailIconX + $iconTextGap, $footerY);
         $this->Cell(50, 4, 'info@jubertfarms.com', 0, 0, 'R');
     }
+
+        // Method to add a "PAID" stamp
+// Method to add a "PAID" stamp - UPDATED
+// Method to add a "PAID" stamp - improved version
+/*function AddPaidStamp($x, $y, $width = 90) {  // Reduced width from 150 to 90
+    // Save current state
+    $this->_out('q');
+    
+    // Rotate
+    $this->_out('1 0 0 1 '.($x).' '.($y).' cm');
+    $this->_out('0.7071 0.7071 -0.7071 0.7071 0 0 cm');
+    
+    // Draw deep blue rectangle with "PAID" text
+    $this->SetFillColor(0, 0, 128);  // Deep blue color
+    $this->SetAlpha(0.5);
+    $this->SetTextColor(255, 255, 255);
+    $this->SetFont('Arial', 'B', 30);  // Reduced font size from 50 to 30
+    
+    $rectWidth = $width;
+    $rectHeight = 35;  // Reduced height from 50 to 35
+    $this->Rect(-$rectWidth/2, -$rectHeight/2, $rectWidth, $rectHeight, 'F');
+    
+    // Text - simplified to just "PAID"
+    $this->SetXY(-$rectWidth/2 + 10, -$rectHeight/2 + 5);
+    $this->Cell($rectWidth - 20, $rectHeight - 10, 'PAID', 0, 0, 'C');
+    
+    // Restore state
+    $this->SetAlpha(1);
+    $this->_out('Q');
+}*/
+
+
 }
 
 // Create and initialize PDF with smaller margins to maximize content area
@@ -387,31 +469,135 @@ $pdf->SetTextColor(50, 50, 50);    // Dark text for contrast
 $pdf->RoundedRect(10, $pdf->GetY(), $pdf->GetPageWidth() - 20, 35, 5, 'F');
 
 // Payment details
+
+
+
+
+// Payment summary section - IMPROVED STYLING
+$pdf->SetY(115);
+
+// Table header
+$pdf->SetFillColor(1, 120, 65);
+$pdf->RoundedRect(10, $pdf->GetY(), $pdf->GetPageWidth() - 20, 12, 5, 'F');
+$pdf->SetFont('Arial', 'B', 15);
+$pdf->SetTextColor(255, 255, 255); // White text for header
+
+// Payment summary header
+$pdf->SetXY(15, $pdf->GetY() + 3);
+$pdf->Cell(80, 6, 'PAYMENT SUMMARY', 0, 0);
+
+// Payment row - with brighter color
+$pdf->SetY(130);
+$pdf->SetFillColor(220, 237, 200); // Very light green
+$pdf->SetTextColor(50, 50, 50);    // Dark text for contrast
+$pdf->RoundedRect(10, $pdf->GetY(), $pdf->GetPageWidth() - 20, 55, 5, 'F'); // Increased height for payment history
+
+// Payment details with better formatting
 $pdf->SetFont('Arial', 'B', 12);
-$pdf->SetXY(15, $pdf->GetY() + 5);
-$pdf->Cell(100, 6, 'INVOICE AMOUNT:', 0, 0);
-$pdf->SetX($pdf->GetPageWidth() - 50);
-$pdf->Cell(35, 6, 'GHS ' . number_format($invoice['total_amount'], 2), 0, 1, 'R');
+$pdf->SetXY(15, $pdf->GetY() + 5); // Add padding from top
 
-$pdf->SetX(15);
-$pdf->Cell(100, 6, 'AMOUNT PAID:', 0, 0);
-$pdf->SetX($pdf->GetPageWidth() - 50);
-$pdf->Cell(35, 6, 'GHS ' . number_format($receipt['payment_amount'], 2), 0, 1, 'R');
+// Improved payment history display
+$receipt_stats = getReceiptStatsByReceiptNo($conn, $receipt_no);
+if ($receipt_stats) {
+    $pdf->SetFont('Arial', 'B', 12);
+    $pdf->Cell(100, 8, 'PAYMENT HISTORY:', 0, 1);
+    $pdf->Ln(2); // Add spacing
+    
+    // Create a table-like structure for payment history
+    $pdf->SetFont('Arial', '', 11);
+    $pdf->SetX(20); // Indent slightly
+    
+    // Table header for payment history
+    $pdf->SetFillColor(1, 120, 65);
+    $pdf->SetTextColor(255, 255, 255);
+    $pdf->Cell(50, 7, 'Amount', 0, 0, 'L', true);
+    $pdf->Cell(50, 7, 'Method', 0, 0, 'L', true);
+    $pdf->Cell(60, 7, 'Date', 0, 1, 'L', true);
+    
+    // Reset text color
+    $pdf->SetTextColor(50, 50, 50);
+    
+    // Show each payment as a row
+    foreach ($receipt_stats['payment_history'] as $payment) {
+        $pdf->SetX(20);
+        $pdf->Cell(50, 6, 'GHS ' . number_format($payment['payment_amount'], 2), 0, 0, 'L');
+        $pdf->Cell(50, 6, $payment['payment_method'], 0, 0, 'L');
+        $pdf->Cell(60, 6, $payment['payment_date'], 0, 1, 'L');
+    }
+    
+    $pdf->Ln(3);
+    
+    // Summary totals with better alignment and styling
+    $pdf->SetDrawColor(1, 120, 65);
+    $pdf->SetLineWidth(0.3);
+    $pdf->Line(20, $pdf->GetY(), $pdf->GetPageWidth() - 20, $pdf->GetY());
+    $pdf->Ln(3);
+    
+    // Total section
+    $pdf->SetX(20);
+    $pdf->SetFont('Arial', 'B', 11);
+    $pdf->Cell(50, 6, 'Total Paid:', 0, 0);
+    $pdf->SetFont('Arial', '', 11);
+    $pdf->Cell(100, 6, 'GHS ' . number_format($receipt_stats['total_paid'], 2), 0, 1);
+    
+    $pdf->SetX(20);
+    $pdf->SetFont('Arial', 'B', 11);
+    $pdf->Cell(50, 6, 'Balance Due:', 0, 0);
+    $pdf->SetFont('Arial', '', 11);
+    $pdf->Cell(100, 6, 'GHS ' . number_format($receipt_stats['balance_due'], 2), 0, 1);
+    
+    // Set variables for later use
+    $total_paid = $receipt_stats['total_paid'];
+    $balance = $receipt_stats['balance_due'];
+    $num_payments = count($receipt_stats['payment_history']);
+} else {
+    // Fallback if receipt stats not available
+    $pdf->Cell(100, 6, 'No payment history available', 0, 1);
+    $pdf->Ln(5);
+    
+    // Number of Payments
+    $pdf->SetX(15);
+    $pdf->Cell(100, 6, 'NUMBER OF PAYMENTS:', 0, 0);
+    $pdf->SetX($pdf->GetPageWidth() - 50);
+    $pdf->Cell(35, 6, $num_payments ?? '1', 0, 1, 'R');
+    
+    // Total Amount Paid (from all payments)
+    $pdf->SetX(15);
+    $pdf->Cell(100, 6, 'TOTAL AMOUNT PAID:', 0, 0);
+    $pdf->SetX($pdf->GetPageWidth() - 50); 
+    $pdf->Cell(35, 6, 'GHS ' . number_format($total_paid ?? $receipt['payment_amount'], 2), 0, 1, 'R');
+    
+    // Invoice Amount
+    $pdf->SetX(15);
+    $pdf->Cell(100, 6, 'INVOICE AMOUNT:', 0, 0);
+    $pdf->SetX($pdf->GetPageWidth() - 50);
+    $pdf->Cell(35, 6, 'GHS ' . number_format($invoice['total_amount'], 2), 0, 1, 'R');
+    
+    // Most recent payment
+    $pdf->SetX(15);
+    $pdf->Cell(100, 6, 'AMOUNT PAID:', 0, 0);
+    $pdf->SetX($pdf->GetPageWidth() - 50);
+    $pdf->Cell(35, 6, 'GHS ' . number_format($receipt['payment_amount'], 2), 0, 1, 'R');
+    
+    // Calculate balance
+    $balance = $invoice['total_amount'] - ($total_paid ?? $receipt['payment_amount']);
+}
 
-$pdf->SetX(15);
-$pdf->Cell(100, 6, 'BALANCE:', 0, 0);
-$pdf->SetX($pdf->GetPageWidth() - 50);
-$balance = $invoice['total_amount'] - $receipt['payment_amount'];
-$pdf->Cell(35, 6, 'GHS ' . number_format($balance, 2), 0, 1, 'R');
+// Payment Status (moved outside the if-else for consistency)
+$pdf->SetY(190); // Fixed position for status section
+$pdf->SetFillColor(1, 120, 65);
+$pdf->RoundedRect(10, $pdf->GetY(), $pdf->GetPageWidth() - 20, 15, 5, 'F');
 
-$pdf->SetX(15);
+$pdf->SetFont('Arial', 'B', 12);
+$pdf->SetTextColor(255, 255, 255);
+$pdf->SetXY(15, $pdf->GetY() + 4);
 $pdf->Cell(100, 6, 'PAYMENT STATUS:', 0, 0);
 $pdf->SetX($pdf->GetPageWidth() - 50);
 $status = ($balance <= 0) ? "PAID" : "PARTIAL";
 $pdf->Cell(35, 6, $status, 0, 1, 'R');
 
 // Calculate positions for notes section
-$y = 175;
+$y = 215;
 
 // Notes section with lighter background
 $pdf->SetFillColor(5, 46, 27);
@@ -429,8 +615,13 @@ $pdf->SetX(15);
 $pdf->MultiCell($pdf->GetPageWidth() - 40, 4, "Thank You For Your Payment. We Appreciate Your Business.\nPlease Keep This Receipt As Proof Of Payment.", 0);
 
 // Add PAID stamp for fully paid invoices
-if ($balance <= 0) {
-    $pdf->AddPaidStamp(100, 140);
-}
+// Repositioned to center of document with smaller size
+// Later in the code, where the stamp is added, change the position:
+// Add PAID stamp for fully paid invoices - moved to be more visible but not interfere with footer
+//if ($balance <= 0) {
+    // Position the stamp higher on the page to avoid footer overlap
+    // The correct position will depend on your layout, but this should help:
+   // $pdf->AddPaidStamp(100, 120);  // Moved up from 140 to 120
+//}
 
 $pdf->Output();

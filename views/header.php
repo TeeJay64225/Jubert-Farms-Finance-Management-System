@@ -267,8 +267,18 @@
                    
                 </div>
             </div>
-            <a href="add_chem.php" class="nav-btn"><i class="fas fa-user-clock"></i> Add Chemical Supply</a>
-            <a href="chem_supply.php" class="nav-btn"><i class="fas fa-user-clock"></i> Chemical Supply</a>
+
+        <!-- supply Dropdown -->
+<div class="custom-dropdown d-inline-block">
+    <button class="nav-btn" onclick="toggleDropdown('supplyDropdown')">
+    <i class="fas fa-user-clock"></i> Supply <i class="fas fa-caret-down ms-1"></i>
+    </button>
+    <div id="supplyDropdown" class="dropdown-content">
+        <a href="add_chem.php"><i class="fas fa-flask"></i> Add Chemical Supply</a>
+        <a href="chem_supply.php"><i class="fas fa-boxes"></i> Chemical Supply</a>  
+    </div>
+</div>
+            
             <a href="report.php" class="nav-btn"><i class="fas fa-file-alt"></i> Reports</a>
             <a href="audit_logs.php" class="nav-btn"><i class="fas fa-shield-alt"></i> Audit</a>
         </div>

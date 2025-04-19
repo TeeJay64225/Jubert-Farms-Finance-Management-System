@@ -290,6 +290,7 @@ $chartData = [
     
             <a href="../admin/payroll.php" class="nav-btn"><i class="fas fa-dollar-sign"></i> Payroll</a>
             <a href="../admin/employee_management.php" class="nav-btn"><i class="fas fa-dollar-sign"></i> employee management</a>
+            <a href="../admin/payment_account_management.php" class="nav-btn active"><i class="fas fa-university"></i> Payment Accounts</a>
         </div>
         
         <!-- User Info and Logout on the right -->

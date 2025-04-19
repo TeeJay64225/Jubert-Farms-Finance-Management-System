@@ -1,4 +1,5 @@
 <?php
+//this is employee_management.php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 session_start();
@@ -312,9 +313,11 @@ $employees = mysqli_fetch_all($result, MYSQLI_ASSOC);
         <div class="nav-links-center">
             <a href="../admin/payroll_dashboard.php" class="nav-btn"><i class="fas fa-chart-line"></i> Dashboard</a>
 
+
     
             <a href="../admin/payroll.php" class="nav-btn"><i class="fas fa-dollar-sign"></i> Payroll</a>
-            <a href="../admin/employee_management.php" class="nav-btn"><i class="fas fa-dollar-sign"></i> employee management</a>
+            <a href="../admin/employee_management.php" class="nav-btn"><i class="fas fa-dollar-sign"></i> Employee Management</a>
+            <a href="../admin/payment_account_management.php" class="nav-btn active"><i class="fas fa-university"></i> Payment Accounts</a>
         </div>
         
         <!-- User Info and Logout on the right -->
@@ -375,7 +378,7 @@ $employees = mysqli_fetch_all($result, MYSQLI_ASSOC);
                         <td><?php echo $employee['last_name'] . ', ' . $employee['first_name']; ?></td>
                         <td><?php echo $employee['position']; ?></td>
                         <td><?php echo $employee['employment_type']; ?></td>
-                        <td><?php echo number_format($employee['salary'], 2); ?></td>
+                        <td><?php echo "GHS " . number_format($employee['salary'], 2); ?></td>
                         <td>
                             <small>
                                 <strong>Phone:</strong> <?php echo $employee['phone']; ?><br>

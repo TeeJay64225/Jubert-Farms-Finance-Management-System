@@ -15,6 +15,7 @@ function log_action($conn, $user_id, $action) {
     $stmt->close();
 }
 
+
 // Initialize variables
 $response = '';
 $response_type = '';
@@ -318,17 +319,28 @@ include 'views/header.php';
             <a href="?action=view_invoice&id=<?= $row['invoice_id'] ?>" class="btn btn-sm btn-info">
                 <i class="bi bi-eye"></i>
             </a>
-
             <?php
-            $invoice_id = $row['invoice_id'];
-            $payment_status = $row['payment_status'];
+$invoice_id = $row['invoice_id'];
+$invoice_no = $row['invoice_no'];
+$payment_status = $row['payment_status'];
 
-            if ($payment_status === 'Paid') {
-                $pdf_link = "receipt_pdf.php?invoice_id=" . $invoice_id;
-            } else {
-                $pdf_link = "invoice_pdf.php?invoice_no=" . urlencode($row['invoice_no']);
-            }
-            ?>
+// Fetch latest receipt_no for this invoice
+$receipt_stmt = $conn->prepare("SELECT receipt_no FROM receipts WHERE invoice_id = ? ORDER BY payment_date DESC LIMIT 1");
+$receipt_stmt->bind_param("i", $invoice_id);
+$receipt_stmt->execute();
+$receipt_stmt->bind_result($receipt_no);
+$receipt_stmt->fetch();
+$receipt_stmt->close();
+
+// Now use the receipt_no in the logic
+if (($payment_status === 'Paid' || $payment_status === 'Partial') && !empty($receipt_no)) {
+    $pdf_link = "receipt_pdf.php?invoice_id=" . urlencode($invoice_id) . "&receipt_no=" . urlencode($receipt_no);
+} else {
+    $pdf_link = "invoice_pdf.php?invoice_no=" . urlencode($invoice_no);
+}
+?>
+
+
             <a href="<?= $pdf_link ?>" class="btn btn-sm btn-secondary" target="_blank">
                 <i class="bi bi-file-pdf"></i>
             </a>
@@ -529,16 +541,24 @@ include 'views/header.php';
                 </form>
             </div>
         </div>
-        
+
         <!-- Invoice View -->
         <?php if ($selected_invoice): ?>
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Invoice Details: <?= htmlspecialchars($selected_invoice['invoice_no']) ?></h5>
                     <div>
-                        <a href="invoice_pdf.php?id=<?= $selected_invoice['invoice_id'] ?>" class="btn btn-secondary" target="_blank">
-                            <i class="bi bi-file-pdf"></i> Download PDF
-                        </a>
+                    <a href="invoice_pdf.php?invoice_no=<?= urlencode($selected_invoice['invoice_no']) ?>" class="btn btn-secondary" target="_blank">
+    <i class="bi bi-file-pdf"></i> Download Invoice
+</a>
+<a href="receipt_pdf.php?invoice_id=<?= $selected_invoice['invoice_id'] ?>" class="btn btn-secondary" target="_blank">
+    <i class="bi bi-file-pdf"></i> Download Receipt
+</a><a href="receipt_pdf.php?invoice_id=<?= $invoice['id'] ?>&receipt_no=<?= $receipt['receipt_no'] ?>" target="_blank">
+    Download Receipt
+</a>
+
+
+
                         <button class="btn btn-success" onclick="showReceiptModal(<?= $selected_invoice['invoice_id'] ?>, '<?= $selected_invoice['invoice_no'] ?>')">
                             <i class="bi bi-receipt"></i> Add Payment
                         </button>

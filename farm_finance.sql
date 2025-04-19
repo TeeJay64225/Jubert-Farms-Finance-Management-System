@@ -719,11 +719,7 @@ INSERT INTO letters (employee_id, letter_type, letter_content) VALUES
 (1, 'Appointment', 'Dear John Smith, We are pleased to confirm your appointment as Manager...'),
 (5, 'Suspension', 'Dear David Brown, This letter serves as formal notification of your temporary suspension...');
 
--- Audit Logs Table
-INSERT INTO audit_logs (user_id, action) VALUES
-(1, 'Created new employee record for Jane Doe'),
-(1, 'Updated payroll information for Bob Johnson'),
-(2, 'Generated appointment letter for John Smith');
+
 
 -- Labor Categories Table
 INSERT INTO labor_categories (category_name, fee_per_head, description) VALUES

@@ -9,13 +9,17 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Include your database connection
 require_once '../config/db.php'; // Make sure the path is correct
-
 function log_action($conn, $user_id, $action) {
+    if ($user_id === null) {
+        return; // Skip logging if user is unknown
+    }
+
     $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
     $stmt->bind_param("is", $user_id, $action);
     $stmt->execute();
     $stmt->close();
 }
+
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $username = trim($_POST['username']);

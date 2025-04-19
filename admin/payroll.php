@@ -412,6 +412,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
     
             <a href="../admin/payroll.php" class="nav-btn"><i class="fas fa-dollar-sign"></i> Payroll</a>
             <a href="../admin/employee_management.php" class="nav-btn"><i class="fas fa-dollar-sign"></i> employee management</a>
+            <a href="../admin/payment_account_management.php" class="nav-btn active"><i class="fas fa-university"></i> Payment Accounts</a>
         </div>
         
         <!-- User Info and Logout on the right -->
@@ -475,7 +476,7 @@ if ($result->num_rows > 0) {
         echo "<tr>";
         echo "<td>{$row['id']}</td>";
         echo "<td>{$row['first_name']} {$row['last_name']}</td>";
-        echo "<td>$" . number_format($row['amount'], 2) . "</td>";
+        echo "<td>GHS " . number_format($row['amount'], 2) . "</td>";
         echo "<td>" . date('M d, Y', strtotime($row['payment_date'])) . "</td>";
         echo "<td>";
         echo "<a href='payroll.php?action=view&payroll_id={$row['id']}' class='btn btn-sm btn-info mr-1'><i class='fas fa-eye'></i></a>";
@@ -712,7 +713,7 @@ if ($result->num_rows > 0) {
                                     <tr>
                                         <td><?php echo $addition['id']; ?></td>
                                         <td><?php echo htmlspecialchars($addition['description']); ?></td>
-                                        <td>$<?php echo number_format($addition['amount'], 2); ?></td>
+                                        <td>GHS<?php echo number_format($addition['amount'], 2); ?></td>
                                         <td><?php echo date('M d, Y', strtotime($addition['addition_date'])); ?></td>
                                         <td>
                                             <?php if ($addition['payroll_id']): ?>

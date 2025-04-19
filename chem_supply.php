@@ -1,14 +1,25 @@
 <?php
 session_start();
 
-// Only allow Admin users
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
     header("Location: views/login.php");
     exit();
 }
 
-include 'config/db.php';
+include 'config/db.php'; // ✅ First include the DB connection
 
+// ✅ Then define the function
+function log_action($conn, $user_id, $action) {
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action) VALUES (?, ?)");
+    $stmt->bind_param("is", $user_id, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// ✅ Then use it
+if (isset($_SESSION['user_id'])) {
+    log_action($conn, $_SESSION['user_id'], "Accessed expense management page");
+}
 // Handle product deletion
 if (isset($_GET['delete_id']) && $_GET['delete_id'] > 0) {
     $delete_id = (int)$_GET['delete_id'];
